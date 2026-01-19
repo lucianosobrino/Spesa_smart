@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Shop AI</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { padding-bottom: env(safe-area-inset-bottom); }
+        .pulse-ring {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .5; transform: scale(1.05); }
+        }
+        input:focus { outline: none; }
+    </style>
+</head>
+<body class="bg-[#f8fafc] text-[#1e293b]">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- INSERISCI QUI LA TUA CHIAVE ---
+        const API_KEY = "AIzaSyAYOcgqm5BopMXBPgOFjDvuA6GGYP1-6cI"; 
+
+        const App = () => {
+            const [items, setItems] = useState([]);
+            const [isListening, setIsListening] = useState(false);
+            const [transcript, setTranscript] = useState('');
+            const [textInput, setTextInput] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [errorMessage, setErrorMessage] = useState('');
+            const recognitionRef = useRef(null);
+
+            useEffect(() => {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (SpeechRecognition) {
+                    recognitionRef.current = new SpeechRecognition();
+                    recognitionRef.current.continuous = false;
+                    recognitionRef.current.interimResults = true;
+                    recognitionRef.current.lang = 'it-IT';
+                    
+                    recognitionRef.current.onresult = (event) => {
+                        const current = event.results[0][0].transcript;
+                        setTranscript(current);
+                    };
+
+                    recognitionRef.current.onend = () => {
+                        setIsListening(false);
+                    };
+                }
+            }, []);
+
+            const startListening = (e) => {
+                e.preventDefault();
+                setErrorMessage('');
+                setTranscript('');
+                try {
+                    recognitionRef.current?.start();
+                    setIsListening(true);
+                } catch (e) {
+                    setErrorMessage("Errore microfono. Riprova.");
+                }
+            };
+
+            const stopAndProcess = (e) => {
+                e.preventDefault();
+                recognitionRef.current?.stop();
+                setIsListening(false);
+                setTimeout(() => processWithAI(transcript), 500);
+            };
+
+            const handleTextSubmit = (e) => {
+                e.preventDefault();
+                if (!textInput.trim()) return;
+                processWithAI(textInput);
+                setTextInput('');
+            };
+
+            const processWithAI = async (input) => {
+                if (!input.trim()) return;
+                if (!API_KEY) {
+                    setErrorMessage("Manca la API KEY nel codice!");
+                    return;
+                }
+
+                setIsLoading(true);
+                const currentList = items.map(i => i.name).join(", ");
+                
+                const systemPrompt = `Sei un assistente spesa.
+                LISTA ATTUALE: [${currentList}]
+                REGOLE:
+                1. Se l'utente chiede ingredienti per una ricetta, aggiungili tutti.
+                2. Se dice di avere già qualcosa o toglilo, rimuovilo.
+                3. Se dice "togli tutto", svuota.
+                4. Categorie: Ortofrutta, Latticini, Carne, Dispensa, Surgelati, Bevande, Altro.
+                RISPONDI SOLO JSON: {"add": [{"n": "nome", "c": "categoria"}], "remove": ["nome"]}`;
+
+                try {
+                    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: `Comando: "${input}"` }] }],
+                            systemInstruction: { parts: [{ text: systemPrompt }] },
+                            generationConfig: { responseMimeType: "application/json" }
+                        })
+                    });
+                    
+                    const data = await resp.json();
+                    if (data.error) throw new Error(data.error.message);
+                    
+                    const result = JSON.parse(data.candidates[0].content.parts[0].text);
+                    
+                    let newList = [...items];
+
+                    if (result.remove) {
+                        newList = newList.filter(item => 
+                            !result.remove.some(r => item.name.toLowerCase().includes(r.toLowerCase()))
+                        );
+                    }
+
+                    if (result.add) {
+                        result.add.forEach(n => {
+                            if (!newList.some(e => e.name.toLowerCase() === n.n.toLowerCase())) {
+                                newList.push({ name: n.n, category: n.c, bought: false, id: Date.now() + Math.random() });
+                            }
+                        });
+                    }
+
+                    setItems(newList);
+                    setTranscript('');
+                } catch (err) {
+                    setErrorMessage("Errore AI. Controlla la chiave API.");
+                    console.error(err);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const grouped = items.reduce((acc, i) => {
+                acc[i.category] = acc[i.category] || [];
+                acc[i.category].push(i);
+                return acc;
+            }, {});
+
+            return (
+                <div className="max-w-md mx-auto min-h-screen p-4 pb-52">
+                    <div className="flex justify-between items-center py-4 mb-4">
+                        <h1 className="text-2xl font-black text-blue-600 tracking-tighter">🛒 SMART LIST</h1>
+                        <button onClick={() => setItems([])} className="text-[10px] font-bold text-slate-400 border border-slate-200 px-3 py-1 rounded-full uppercase">Svuota</button>
+                    </div>
+
+                    {errorMessage && (
+                        <div className="bg-red-50 text-red-500 p-3 rounded-xl text-xs font-bold mb-4 border border-red-100">
+                            ⚠️ {errorMessage}
+                        </div>
+                    )}
+
+                    <div className="space-y-6">
+                        {items.length === 0 && !isLoading && (
+                            <div className="text-center py-10 text-slate-300 italic text-sm">
+                                La lista è vuota. Scrivi o detta qualcosa!
+                            </div>
+                        )}
+                        {Object.entries(grouped).map(([cat, list]) => (
+                            <div key={cat} className="space-y-2">
+                                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{cat}</h2>
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                    {list.map(item => (
+                                        <div key={item.id} className="flex items-center p-4 active:bg-slate-50 border-b border-slate-50 last:border-0"
+                                             onClick={() => setItems(items.map(i => i.id === item.id ? {...i, bought: !i.bought} : i))}>
+                                            <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${item.bought ? 'bg-green-500 border-green-500' : 'border-slate-200'}`}>
+                                                {item.bought && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                            </div>
+                                            <span className={`flex-1 font-bold ${item.bought ? 'line-through text-slate-300 italic' : 'text-slate-700'}`}>{item.name}</span>
+                                            <button onClick={(e) => {e.stopPropagation(); setItems(items.filter(i => i.id !== item.id))}} className="text-slate-200 p-2">✕</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* INTERFACCIA DI INPUT FISSA IN BASSO */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent">
+                        <div className="max-w-md mx-auto space-y-4">
+                            {/* CAMPO DI TESTO LIBERO */}
+                            <form onSubmit={handleTextSubmit} className="relative group">
+                                <input 
+                                    type="text" 
+                                    value={textInput}
+                                    onChange={(e) => setTextInput(e.target.value)}
+                                    placeholder="Scrivi qui (es: torta di mele...)"
+                                    className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 pr-12 shadow-lg focus:border-blue-400 transition-all font-medium"
+                                />
+                                <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-blue-600">
+                                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2.5" fill="none"><line x1="22" y1="2" x2="11" y2="13"/><polyline points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                </button>
+                            </form>
+
+                            {/* CONTROLLO VOCALE */}
+                            <div className="flex flex-col items-center gap-3">
+                                {isListening && (
+                                    <div className="bg-white px-6 py-2 rounded-full shadow-md border border-blue-100 text-blue-600 font-bold animate-pulse text-xs">
+                                        "{transcript || 'In ascolto...'}"
+                                    </div>
+                                )}
+                                
+                                <button 
+                                    onPointerDown={startListening}
+                                    onPointerUp={stopAndProcess}
+                                    className={`w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transition-all touch-none ${isListening ? 'bg-red-500 scale-110 pulse-ring' : 'bg-blue-600 active:scale-90'}`}
+                                >
+                                    {isLoading ? (
+                                        <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        <svg viewBox="0 0 24 24" width="36" height="36" stroke="white" strokeWidth="2" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                                    )}
+                                </button>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{isListening ? 'Rilascia per inviare' : 'Tieni premuto per parlare'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
