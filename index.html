@@ -35,12 +35,12 @@
 
         const App = () => {
             const [items, setItems] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_items_v2');
+                const saved = localStorage.getItem('smart_chef_items_v6');
                 return saved ? JSON.parse(saved) : [];
             });
             
             const [recipes, setRecipes] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_recipes_v2');
+                const saved = localStorage.getItem('smart_chef_recipes_v6');
                 return saved ? JSON.parse(saved) : [];
             });
 
@@ -52,8 +52,8 @@
             const recognitionRef = useRef(null);
 
             useEffect(() => {
-                localStorage.setItem('smart_chef_items_v2', JSON.stringify(items));
-                localStorage.setItem('smart_chef_recipes_v2', JSON.stringify(recipes));
+                localStorage.setItem('smart_chef_items_v6', JSON.stringify(items));
+                localStorage.setItem('smart_chef_recipes_v6', JSON.stringify(recipes));
             }, [items, recipes]);
 
             useEffect(() => {
@@ -69,30 +69,30 @@
             }, []);
 
             const processWithAI = async (input) => {
-                if (!input.trim() || !API_KEY) return;
+                if (!input.trim()) return;
                 setIsLoading(true);
                 setErrorMessage('');
 
-                const prompt = `Sei uno Chef. Utente chiede: "${input}". 
-                LISTA ATTUALE: ${items.map(i=>i.name).join(", ")}.
-                REGOLE: 
-                1. Calcola dosi per persone richieste (default 2). 
-                2. Includi dosi nel nome (es: "250g Riso").
-                3. Se chiede ricetta, includi link YouTube query.
-                4. Rimuovi se dice "ce l'ho" o "togli".
-                CATEGORIE: Ortofrutta, Latticini, Carne, Dispensa, Surgelati, Bevande, Pulizia, Altro.
-                JSON: {"add":[{"n":"nome","c":"cat"}], "remove":[], "recipe":{"title":"nome","ytQuery":"cerca"}}`;
+                const promptText = `Chef: "${input}". Lista: ${items.map(i=>i.name).join(",")}. JSON: {"add":[{"n":"nome+dose","c":"cat"}], "remove":[], "recipe":{"title":"nome","ytQuery":"cerca"}}`;
 
                 try {
-                    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
+                    // Utilizzo del modello flash-8b: il più leggero e con meno restrizioni di quota
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${API_KEY}`;
+                    
+                    const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }],
+                            contents: [{ parts: [{ text: promptText }] }],
                             generationConfig: { responseMimeType: "application/json" }
                         })
                     });
-                    const data = await resp.json();
+
+                    if (!response.ok) {
+                        throw new Error("Quota superata o errore API. Aggiunta manuale...");
+                    }
+
+                    const data = await response.json();
                     const res = JSON.parse(data.candidates[0].content.parts[0].text);
                     
                     let newList = [...items];
@@ -100,18 +100,25 @@
                     if (res.add) {
                         res.add.forEach(n => {
                             if (!newList.some(e => e.name.toLowerCase() === n.n.toLowerCase())) {
-                                newList.push({ name: n.n, category: n.c, bought: false, id: Date.now() + Math.random() });
+                                newList.push({ name: n.n, category: n.c || "Altro", bought: false, id: Date.now() + Math.random() });
                             }
                         });
                     }
                     if (res.recipe) setRecipes(prev => [res.recipe, ...prev.filter(r => r.title !== res.recipe.title)].slice(0, 3));
                     setItems(newList);
                 } catch (e) {
-                    setErrorMessage("Errore di connessione AI.");
+                    // Fallback: aggiungi come voce singola se l'AI fallisce
+                    setItems(prev => [...prev, { name: input, category: "Altro", bought: false, id: Date.now() }]);
+                    setErrorMessage("Nota: AI non disponibile (quota). Aggiunto manualmente.");
+                    setTimeout(() => setErrorMessage(''), 3000);
                 } finally { setIsLoading(false); }
             };
 
-            const grouped = items.reduce((acc, i) => { (acc[i.category] = acc[i.category] || []).push(i); return acc; }, {});
+            const grouped = items.reduce((acc, i) => { 
+                const cat = i.category || "Altro";
+                (acc[cat] = acc[cat] || []).push(i); 
+                return acc; 
+            }, {});
 
             return (
                 <div className="max-w-md mx-auto min-h-screen px-4 pt-6 pb-48">
@@ -120,23 +127,23 @@
                             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
                                 <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                             </div>
-                            <h1 className="text-xl font-black text-slate-800 tracking-tighter uppercase">Smart Chef</h1>
+                            <h1 className="text-xl font-black text-slate-800 tracking-tighter uppercase italic">Smart List</h1>
                         </div>
-                        <button onClick={() => {if(confirm("Svuotare tutto?")){setItems([]); setRecipes([]);}}} className="text-[10px] font-bold text-slate-400 bg-white border border-slate-100 px-3 py-1.5 rounded-lg uppercase shadow-sm">Reset</button>
+                        <button onClick={() => {if(confirm("Svuotare tutto?")){setItems([]); setRecipes([]);}}} className="text-[10px] font-bold text-slate-400 bg-white border border-slate-100 px-3 py-1.5 rounded-lg shadow-sm">Reset</button>
                     </div>
 
                     {recipes.length > 0 && (
                         <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                             {recipes.map((r, i) => (
-                                <a key={i} href={`https://www.youtube.com/results?search_query=${r.ytQuery}`} target="_blank" className="flex-shrink-0 bg-white border border-slate-100 rounded-xl p-3 shadow-sm flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white">▶</div>
-                                    <div className="max-w-[100px]"><p className="text-[7px] font-black text-red-500 uppercase">Video</p><p className="text-xs font-bold text-slate-700 truncate">{r.title}</p></div>
+                                <a key={i} href={`https://www.youtube.com/results?search_query=${r.ytQuery}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 bg-white border border-slate-100 rounded-xl p-3 shadow-sm flex items-center gap-3 border-b-2 border-b-red-100">
+                                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px]">▶</div>
+                                    <div className="max-w-[100px]"><p className="text-[7px] font-black text-red-500 uppercase tracking-tighter">Youtube</p><p className="text-xs font-bold text-slate-700 truncate">{r.title}</p></div>
                                 </a>
                             ))}
                         </div>
                     )}
 
-                    {errorMessage && <div className="bg-red-50 text-red-500 p-2 rounded-lg text-[10px] font-bold mb-4">{errorMessage}</div>}
+                    {errorMessage && <div className="bg-amber-50 text-amber-600 p-3 rounded-xl text-[10px] font-bold mb-4 border border-amber-100 animate-pulse">⚠️ {errorMessage}</div>}
 
                     <div className="space-y-5">
                         {Object.entries(grouped).sort().map(([cat, list]) => (
@@ -146,10 +153,10 @@
                                     {list.map(item => (
                                         <div key={item.id} className="compact-item flex items-center active:bg-slate-50" onClick={() => setItems(items.map(i => i.id === item.id ? {...i, bought: !i.bought} : i))}>
                                             <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${item.bought ? 'bg-green-500 border-green-500' : 'border-slate-200'}`}>
-                                                {item.bought && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                                {item.bought && <svg viewBox="0 0 24 24" width="12" height="12" stroke="white" strokeWidth="4" fill="none"><polyline points="20 6 9 17 4 12"/></svg>}
                                             </div>
                                             <span className={`flex-1 text-sm font-bold ${item.bought ? 'line-through text-slate-300 italic' : 'text-slate-700'}`}>{item.name}</span>
-                                            <button onClick={(e) => {e.stopPropagation(); setItems(items.filter(i => i.id !== item.id))}} className="text-slate-200 p-2 text-xl">×</button>
+                                            <button onClick={(e) => {e.stopPropagation(); setItems(items.filter(i => i.id !== item.id))}} className="text-slate-200 p-2 text-xl leading-none">×</button>
                                         </div>
                                     ))}
                                 </div>
@@ -160,19 +167,19 @@
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent">
                         <div className="max-w-md mx-auto space-y-4">
                             <form onSubmit={(e) => {e.preventDefault(); processWithAI(textInput); setTextInput('');}} className="flex gap-2">
-                                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Aggiungi prodotti o ricette..." className="flex-1 bg-white border border-slate-200 rounded-2xl px-5 py-4 shadow-xl text-sm font-bold" />
-                                <button type="submit" className="bg-blue-600 text-white px-4 rounded-2xl shadow-lg active:scale-90 transition-all">➔</button>
+                                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Aggiungi prodotto o ricetta..." className="flex-1 bg-white border border-slate-200 rounded-2xl px-5 py-4 shadow-xl text-sm font-bold focus:border-blue-300 transition-colors" />
+                                <button type="submit" className="bg-blue-600 text-white w-12 rounded-2xl shadow-lg active:scale-90 transition-all flex items-center justify-center text-xl">➔</button>
                             </form>
                             <div className="flex flex-col items-center gap-2">
-                                {isListening && <div className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-bold animate-pulse">"{transcript}"</div>}
+                                {isListening && <div className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-bold animate-pulse shadow-lg shadow-blue-200">"{transcript || 'Ti ascolto...'}"</div>}
                                 <button 
                                     onPointerDown={(e) => {e.preventDefault(); setTranscript(''); setIsListening(true); recognitionRef.current?.start();}}
-                                    onPointerUp={(e) => {e.preventDefault(); recognitionRef.current?.stop(); setTimeout(() => processWithAI(transcript), 500);}}
+                                    onPointerUp={(e) => {e.preventDefault(); recognitionRef.current?.stop(); setTimeout(() => {if(transcript) processWithAI(transcript)}, 600);}}
                                     className={`w-16 h-16 rounded-full flex items-center justify-center shadow-xl transition-all ${isListening ? 'bg-red-500 scale-110 pulse-ring' : 'bg-slate-800'}`}
                                 >
                                     {isLoading ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <svg viewBox="0 0 24 24" width="28" height="28" stroke="white" strokeWidth="2.5" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>}
                                 </button>
-                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{isListening ? 'Rilascia' : 'Tieni premuto'}</p>
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{isListening ? 'Rilascia per inviare' : 'Tieni premuto per parlare'}</p>
                             </div>
                         </div>
                     </div>
