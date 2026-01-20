@@ -104,40 +104,59 @@
             const recognitionRef = useRef(null);
 
             // Inizializza Web Speech API
-            useEffect(() => {
-                const SpeechRecognition =
-                    window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) {
-                    console.warn('SpeechRecognition non supportato da questo browser.');
-                    return;
-                }
+// --- Stato per microfono ---
+const [isRecording, setIsRecording] = useState(false);
+const recognitionRef = useRef(null);
 
-                const recognition = new SpeechRecognition();
-                recognition.lang = 'it-IT';
-                recognition.continuous = true;
-                recognition.interimResults = true; // risultati parziali mentre parli[web:16]
+useEffect(() => {
+    const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        console.warn('SpeechRecognition non supportato da questo browser.');
+        return;
+    }
 
-                recognition.onresult = (event) => {
-                    let transcript = '';
-                    for (let i = event.resultIndex; i < event.results.length; i++) {
-                        transcript += event.results[i][0].transcript;
-                    }
-                    // Accoda testo dettato al contenuto esistente
-                    setTextInput(prev => (prev ? prev + ' ' : '') + transcript.trim());
-                };
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'it-IT';
+    recognition.continuous = true;
+    recognition.interimResults = true;
 
-                recognition.onerror = (event) => {
-                    console.error('Errore riconoscimento vocale:', event.error);
-                    setIsRecording(false);
-                };
+    let finalTranscript = '';
 
-                recognition.onend = () => {
-                    // viene chiamato quando si ferma (anche da stop())
-                    setIsRecording(false);
-                };
+    recognition.onstart = () => {
+        finalTranscript = '';
+    };
 
-                recognitionRef.current = recognition;
-            }, []);
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            const text = res[0].transcript;
+
+            if (res.isFinal) {
+                finalTranscript += text + ' ';
+            } else {
+                interimTranscript += text + ' ';
+            }
+        }
+
+        const combined = (finalTranscript + interimTranscript).trim();
+        setTextInput(combined);
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Errore riconoscimento vocale:', event.error);
+        setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+        setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+}, []);
+
 
             useEffect(() => {
                 if (autoSave) {
