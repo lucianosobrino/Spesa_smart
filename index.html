@@ -32,17 +32,16 @@
         const { useState, useEffect, useRef } = React;
 
         const App = () => {
-            // Gestione API KEY sicura (nel localStorage, non nel codice)
             const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
             const [showSettings, setShowSettings] = useState(!localStorage.getItem('gemini_api_key'));
 
             const [items, setItems] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_items_v7');
+                const saved = localStorage.getItem('smart_chef_items_v8');
                 return saved ? JSON.parse(saved) : [];
             });
             
             const [recipes, setRecipes] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_recipes_v7');
+                const saved = localStorage.getItem('smart_chef_recipes_v8');
                 return saved ? JSON.parse(saved) : [];
             });
 
@@ -54,8 +53,8 @@
             const recognitionRef = useRef(null);
 
             useEffect(() => {
-                localStorage.setItem('smart_chef_items_v7', JSON.stringify(items));
-                localStorage.setItem('smart_chef_recipes_v7', JSON.stringify(recipes));
+                localStorage.setItem('smart_chef_items_v8', JSON.stringify(items));
+                localStorage.setItem('smart_chef_recipes_v8', JSON.stringify(recipes));
             }, [items, recipes]);
 
             useEffect(() => {
@@ -71,8 +70,9 @@
             }, []);
 
             const saveApiKey = (key) => {
-                localStorage.setItem('gemini_api_key', key);
-                setApiKey(key);
+                const cleanKey = key.trim();
+                localStorage.setItem('gemini_api_key', cleanKey);
+                setApiKey(cleanKey);
                 setShowSettings(false);
             };
 
@@ -85,42 +85,66 @@
                 setIsLoading(true);
                 setErrorMessage('');
 
-                const promptText = `Chef: "${input}". Lista: ${items.map(i=>i.name).join(",")}. JSON: {"add":[{"n":"nome+dose","c":"cat"}], "remove":[], "recipe":{"title":"nome","ytQuery":"cerca"}}`;
+                const promptText = `Agisci come assistente spesa. 
+                Analizza: "${input}"
+                Lista attuale: ${items.map(i=>i.name).join(",")}
+                
+                Restituisci SOLO un JSON:
+                {
+                  "add": [{"n": "prodotto e dose", "c": "categoria"}],
+                  "remove": ["nomi prodotti da togliere"],
+                  "recipe": {"title": "nome ricetta", "ytQuery": "ricerca youtube"}
+                }`;
 
                 try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`;
+                    // Modello specifico per l'ambiente preview
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
                     
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             contents: [{ parts: [{ text: promptText }] }],
-                            generationConfig: { responseMimeType: "application/json" }
+                            generationConfig: { 
+                                responseMimeType: "application/json",
+                                temperature: 0.1 
+                            }
                         })
                     });
 
                     if (!response.ok) {
-                        if (response.status === 400) throw new Error("API Key non valida o scaduta.");
-                        throw new Error("Errore AI. Aggiunta manuale...");
+                        const errData = await response.json();
+                        console.error("Dettagli errore API:", errData);
+                        throw new Error(response.status === 400 ? "Chiave non valida" : "Errore connessione");
                     }
 
                     const data = await response.json();
-                    const res = JSON.parse(data.candidates[0].content.parts[0].text);
+                    let rawContent = data.candidates[0].content.parts[0].text;
+                    
+                    // Pulizia da eventuali backticks markdown che l'AI potrebbe aggiungere
+                    rawContent = rawContent.replace(/```json/g, "").replace(/```/g, "").trim();
+                    
+                    const res = JSON.parse(rawContent);
                     
                     let newList = [...items];
-                    if (res.remove) newList = newList.filter(i => !res.remove.some(r => i.name.toLowerCase().includes(r.toLowerCase())));
-                    if (res.add) {
+                    if (res.remove && Array.isArray(res.remove)) {
+                        newList = newList.filter(i => !res.remove.some(r => i.name.toLowerCase().includes(r.toLowerCase())));
+                    }
+                    if (res.add && Array.isArray(res.add)) {
                         res.add.forEach(n => {
                             if (!newList.some(e => e.name.toLowerCase() === n.n.toLowerCase())) {
                                 newList.push({ name: n.n, category: n.c || "Altro", bought: false, id: Date.now() + Math.random() });
                             }
                         });
                     }
-                    if (res.recipe) setRecipes(prev => [res.recipe, ...prev.filter(r => r.title !== res.recipe.title)].slice(0, 3));
+                    if (res.recipe && res.recipe.title) {
+                        setRecipes(prev => [res.recipe, ...prev.filter(r => r.title !== res.recipe.title)].slice(0, 3));
+                    }
                     setItems(newList);
                 } catch (e) {
+                    console.error("Errore:", e);
                     setItems(prev => [...prev, { name: input, category: "Altro", bought: false, id: Date.now() }]);
-                    setErrorMessage(e.message);
+                    setErrorMessage("Errore AI. Aggiunto manualmente.");
                     setTimeout(() => setErrorMessage(''), 3000);
                 } finally { setIsLoading(false); }
             };
@@ -152,9 +176,9 @@
                     {/* Modal Impostazioni API KEY */}
                     {showSettings && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-                            <div className="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl">
+                            <div className="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl text-center">
                                 <h3 className="text-lg font-black text-slate-800 mb-2">Configura AI</h3>
-                                <p className="text-xs text-slate-500 mb-4 font-medium leading-relaxed">Inserisci la tua Gemini API Key. Verrà salvata solo in locale sul browser.</p>
+                                <p className="text-xs text-slate-500 mb-4 font-medium leading-relaxed">Inserisci la tua Gemini API Key.<br/>(Modello richiesto: 2.5-flash-preview)</p>
                                 <input 
                                     type="password" 
                                     defaultValue={apiKey}
