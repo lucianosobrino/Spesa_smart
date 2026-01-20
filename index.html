@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
@@ -63,6 +63,7 @@
             const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
             const [showSettings, setShowSettings] = useState(!localStorage.getItem('gemini_api_key'));
             const [showHistory, setShowHistory] = useState(false);
+            const [showConfirmReset, setShowConfirmReset] = useState(false);
             const [hideBought, setHideBought] = useState(false);
             const [collapsedCats, setCollapsedCats] = useState({});
             const [autoSave, setAutoSave] = useState(() => localStorage.getItem('smart_chef_autosave') !== 'false');
@@ -110,9 +111,6 @@
                     recognition.onresult = (e) => {
                         let currentTranscript = '';
                         for (let i = 0; i < e.results.length; ++i) {
-                            if (e.results[i].isFinal) {
-                                // Evitiamo duplicati prendendo solo i blocchi finali
-                            }
                             currentTranscript += e.results[i][0].transcript;
                         }
                         setTranscriptPreview(currentTranscript);
@@ -211,7 +209,11 @@
             };
 
             const clearBought = () => setItems(items.filter(i => !i.bought));
-            const resetAll = () => { if(confirm("Cancellare tutto?")) setItems([]); };
+            const performFullReset = () => {
+                setItems([]);
+                setRecipes([]);
+                setShowConfirmReset(false);
+            };
 
             const grouped = (hideBought ? items.filter(i => !i.bought) : items).reduce((acc, i) => { 
                 const cat = i.category || "Altro";
@@ -241,13 +243,16 @@
                     </div>
 
                     {/* Toolbar Rapida */}
-                    <div className="flex justify-between items-center mb-4 px-1">
-                        <div className="flex gap-2">
-                            <button onClick={() => toggleAllCats(false)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">ESPANDI TUTTO</button>
-                            <button onClick={() => toggleAllCats(true)} className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">COLLASSA</button>
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={clearBought} className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded uppercase">Pulisci Presi</button>
+                    <div className="flex flex-col gap-3 mb-6">
+                        <div className="flex justify-between items-center px-1">
+                            <div className="flex gap-2">
+                                <button onClick={() => toggleAllCats(false)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1.5 rounded-lg border border-blue-100 uppercase">Espandi</button>
+                                <button onClick={() => toggleAllCats(true)} className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1.5 rounded-lg border border-slate-200 uppercase">Collassa</button>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={clearBought} className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1.5 rounded-lg border border-orange-100 uppercase">Rimuovi Presi</button>
+                                <button onClick={() => setShowConfirmReset(true)} className="text-[10px] font-bold text-white bg-red-500 px-2 py-1.5 rounded-lg shadow-sm uppercase">Svuota Tutto</button>
+                            </div>
                         </div>
                     </div>
 
@@ -293,12 +298,10 @@
                     {/* Barra Input Fissa */}
                     <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-slate-100 via-slate-100/95 to-transparent z-40">
                         <div className="max-w-md mx-auto relative">
-                            
-                            {/* Loader Non Invasivo */}
                             {isLoading && (
                                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-xl animate-bounce z-50">
                                     <div className="mini-loader"></div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider">Sta pensando...</span>
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-white">Pensando...</span>
                                 </div>
                             )}
 
@@ -336,6 +339,23 @@
                             </div>
                         </div>
                     </div>
+
+                    {/* Modal Conferma Reset */}
+                    {showConfirmReset && (
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
+                            <div className="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl text-center">
+                                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <svg viewBox="0 0 24 24" width="32" height="32" className="text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                </div>
+                                <h3 className="text-lg font-black text-slate-800 mb-2">Sei sicuro?</h3>
+                                <p className="text-sm font-medium text-slate-500 mb-6 uppercase tracking-tight">Questa operazione cancellerà tutti i prodotti e i suggerimenti.</p>
+                                <div className="space-y-3">
+                                    <button onClick={performFullReset} className="w-full bg-red-500 text-white rounded-xl py-3 text-xs font-black uppercase tracking-widest shadow-lg shadow-red-100">Sì, cancella tutto</button>
+                                    <button onClick={() => setShowConfirmReset(false)} className="w-full bg-slate-100 text-slate-600 rounded-xl py-3 text-xs font-black uppercase tracking-widest">Annulla</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Modali Impostazioni e Cronologia */}
                     {showHistory && (
@@ -385,9 +405,7 @@
                                         setApiKey(k.trim());
                                         setShowSettings(false);
                                     }} className="flex-1 bg-blue-600 text-white rounded-xl py-3 text-xs font-black uppercase tracking-widest">Salva</button>
-                                    <button onClick={resetAll} className="p-3 bg-red-50 text-red-500 rounded-xl">
-                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                                    </button>
+                                    <button onClick={() => setShowSettings(false)} className="p-3 bg-slate-100 text-slate-400 rounded-xl">Chiudi</button>
                                 </div>
                             </div>
                         </div>
