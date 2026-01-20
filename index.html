@@ -149,6 +149,23 @@
                 }
             }, [items, recipes, history, autoSave, showSocial]);
 
+            // divide stringa in item usando virgola, punto e la parola "e"
+            const splitToItems = (raw) => {
+              if (!raw) return [];
+              // normalizza, sostituisce " e " con virgola
+              let text = raw
+                .toLowerCase()
+                .replace(/\se\s/gi, ',')   // "pane e acqua" -> "pane, acqua"
+                .replace(/[\.]/g, ',');    // punti -> virgola
+            
+              // split su virgola
+              return text
+                .split(',')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            };
+            
+
             const processWithAI = async (input) => {
                 const query = input.trim();
                 if (!query || isLoading) return;
@@ -213,24 +230,38 @@
                     setHistory(prev => [query, ...prev.filter(h => h !== query)].slice(0, 20));
                     setTextInput('');
                 } catch (e) {
-                    console.error("AI Error:", e);
-                    if (e.message === "LIMIT_REACHED") {
-                        setErrorModal({
-                            show: true,
-                            title: "Limite Raggiunto",
-                            message: "Hai esaurito le richieste gratuite giornaliere per oggi. Riprova tra qualche ora o domani."
-                        });
-                    } else if (e.message === "INVALID_KEY") {
-                        setErrorModal({
-                            show: true,
-                            title: "Chiave non valida",
-                            message: "La tua API Key non è corretta o è scaduta. Controlla le impostazioni."
-                        });
-                    } else {
-                        setItems(prev => [...prev, { id: Date.now(), name: query, category: "Altro", bought: false }]);
-                        setTextInput('');
-                    }
-                } finally {
+              console.error("AI Error:", e);
+            
+              const fallbackItems = splitToItems(query);
+            
+              if (e.message === "LIMIT_REACHED") {
+                setErrorModal({
+                  show: true,
+                  title: "Limite Raggiunto",
+                  message: "Hai esaurito le richieste IA, ma gli elementi verranno comunque aggiunti come \"Altro\"."
+                });
+              } else if (e.message === "INVALID_KEY") {
+                setErrorModal({
+                  show: true,
+                  title: "Chiave non valida",
+                  message: "La tua API Key non è corretta o è scaduta. Gli elementi sono stati aggiunti come \"Altro\"."
+                });
+              }
+            
+              if (fallbackItems.length > 0) {
+                setItems(prev => [
+                  ...prev,
+                  ...fallbackItems.map(name => ({
+                    id: Date.now() + Math.random(),
+                    name,
+                    category: "Altro",
+                    bought: false
+                  }))
+                ]);
+              }
+            
+              setTextInput('');
+            } finally {
                     setIsLoading(false);
                 }
             };
