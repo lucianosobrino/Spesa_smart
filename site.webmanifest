@@ -1,0 +1,13 @@
+{
+  "name": "Chef Spesa",
+  "short_name": "Chef Spesa",
+  "icons": [
+    {
+      "src": "SpesaSmart.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "./",
+  "display": "standalone"
+}
