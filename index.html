@@ -31,16 +31,18 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const API_KEY = "AIzaSyAYOcgqm5BopMXBPgOFjDvuA6GGYP1-6cI"; 
-
         const App = () => {
+            // Gestione API KEY sicura (nel localStorage, non nel codice)
+            const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+            const [showSettings, setShowSettings] = useState(!localStorage.getItem('gemini_api_key'));
+
             const [items, setItems] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_items_v6');
+                const saved = localStorage.getItem('smart_chef_items_v7');
                 return saved ? JSON.parse(saved) : [];
             });
             
             const [recipes, setRecipes] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_recipes_v6');
+                const saved = localStorage.getItem('smart_chef_recipes_v7');
                 return saved ? JSON.parse(saved) : [];
             });
 
@@ -52,8 +54,8 @@
             const recognitionRef = useRef(null);
 
             useEffect(() => {
-                localStorage.setItem('smart_chef_items_v6', JSON.stringify(items));
-                localStorage.setItem('smart_chef_recipes_v6', JSON.stringify(recipes));
+                localStorage.setItem('smart_chef_items_v7', JSON.stringify(items));
+                localStorage.setItem('smart_chef_recipes_v7', JSON.stringify(recipes));
             }, [items, recipes]);
 
             useEffect(() => {
@@ -68,16 +70,25 @@
                 }
             }, []);
 
+            const saveApiKey = (key) => {
+                localStorage.setItem('gemini_api_key', key);
+                setApiKey(key);
+                setShowSettings(false);
+            };
+
             const processWithAI = async (input) => {
                 if (!input.trim()) return;
+                if (!apiKey) {
+                    setShowSettings(true);
+                    return;
+                }
                 setIsLoading(true);
                 setErrorMessage('');
 
                 const promptText = `Chef: "${input}". Lista: ${items.map(i=>i.name).join(",")}. JSON: {"add":[{"n":"nome+dose","c":"cat"}], "remove":[], "recipe":{"title":"nome","ytQuery":"cerca"}}`;
 
                 try {
-                    // Utilizzo del modello flash-8b: il più leggero e con meno restrizioni di quota
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${API_KEY}`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`;
                     
                     const response = await fetch(url, {
                         method: 'POST',
@@ -89,7 +100,8 @@
                     });
 
                     if (!response.ok) {
-                        throw new Error("Quota superata o errore API. Aggiunta manuale...");
+                        if (response.status === 400) throw new Error("API Key non valida o scaduta.");
+                        throw new Error("Errore AI. Aggiunta manuale...");
                     }
 
                     const data = await response.json();
@@ -107,9 +119,8 @@
                     if (res.recipe) setRecipes(prev => [res.recipe, ...prev.filter(r => r.title !== res.recipe.title)].slice(0, 3));
                     setItems(newList);
                 } catch (e) {
-                    // Fallback: aggiungi come voce singola se l'AI fallisce
                     setItems(prev => [...prev, { name: input, category: "Altro", bought: false, id: Date.now() }]);
-                    setErrorMessage("Nota: AI non disponibile (quota). Aggiunto manualmente.");
+                    setErrorMessage(e.message);
                     setTimeout(() => setErrorMessage(''), 3000);
                 } finally { setIsLoading(false); }
             };
@@ -122,6 +133,7 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen px-4 pt-6 pb-48">
+                    {/* Header */}
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
@@ -129,8 +141,34 @@
                             </div>
                             <h1 className="text-xl font-black text-slate-800 tracking-tighter uppercase italic">Smart List</h1>
                         </div>
-                        <button onClick={() => {if(confirm("Svuotare tutto?")){setItems([]); setRecipes([]);}}} className="text-[10px] font-bold text-slate-400 bg-white border border-slate-100 px-3 py-1.5 rounded-lg shadow-sm">Reset</button>
+                        <div className="flex gap-2">
+                            <button onClick={() => setShowSettings(true)} className="p-2 bg-white border border-slate-100 rounded-lg shadow-sm text-slate-400">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            </button>
+                            <button onClick={() => {if(confirm("Svuotare tutto?")){setItems([]); setRecipes([]);}}} className="text-[10px] font-bold text-slate-400 bg-white border border-slate-100 px-3 py-1.5 rounded-lg shadow-sm">Reset</button>
+                        </div>
                     </div>
+
+                    {/* Modal Impostazioni API KEY */}
+                    {showSettings && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+                            <div className="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl">
+                                <h3 className="text-lg font-black text-slate-800 mb-2">Configura AI</h3>
+                                <p className="text-xs text-slate-500 mb-4 font-medium leading-relaxed">Inserisci la tua Gemini API Key. Verrà salvata solo in locale sul browser.</p>
+                                <input 
+                                    type="password" 
+                                    defaultValue={apiKey}
+                                    placeholder="Incolla chiave AIza..."
+                                    id="api_input"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm mb-4 font-mono focus:border-blue-500 transition-colors"
+                                />
+                                <div className="flex gap-2">
+                                    <button onClick={() => setShowSettings(false)} className="flex-1 py-3 text-sm font-bold text-slate-400">Chiudi</button>
+                                    <button onClick={() => saveApiKey(document.getElementById('api_input').value)} className="flex-1 bg-blue-600 text-white rounded-xl py-3 text-sm font-bold shadow-lg shadow-blue-200">Salva</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {recipes.length > 0 && (
                         <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -143,9 +181,16 @@
                         </div>
                     )}
 
-                    {errorMessage && <div className="bg-amber-50 text-amber-600 p-3 rounded-xl text-[10px] font-bold mb-4 border border-amber-100 animate-pulse">⚠️ {errorMessage}</div>}
+                    {errorMessage && <div className="bg-amber-50 text-amber-600 p-3 rounded-xl text-[10px] font-bold mb-4 border border-amber-100 animate-pulse text-center">⚠️ {errorMessage}</div>}
 
+                    {/* Lista Spesa */}
                     <div className="space-y-5">
+                        {Object.entries(grouped).length === 0 && (
+                            <div className="py-20 text-center opacity-20">
+                                <svg viewBox="0 0 24 24" width="60" height="60" className="mx-auto mb-4" fill="none" stroke="currentColor" strokeWidth="1"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/></svg>
+                                <p className="font-bold uppercase tracking-widest text-[10px]">Lista vuota</p>
+                            </div>
+                        )}
                         {Object.entries(grouped).sort().map(([cat, list]) => (
                             <div key={cat} className="space-y-1.5">
                                 <h2 className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">{cat}</h2>
@@ -164,10 +209,11 @@
                         ))}
                     </div>
 
+                    {/* Footer / Input */}
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent">
                         <div className="max-w-md mx-auto space-y-4">
                             <form onSubmit={(e) => {e.preventDefault(); processWithAI(textInput); setTextInput('');}} className="flex gap-2">
-                                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Aggiungi prodotto o ricetta..." className="flex-1 bg-white border border-slate-200 rounded-2xl px-5 py-4 shadow-xl text-sm font-bold focus:border-blue-300 transition-colors" />
+                                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Esempio: Pasta al forno per 4" className="flex-1 bg-white border border-slate-200 rounded-2xl px-5 py-4 shadow-xl text-sm font-bold" />
                                 <button type="submit" className="bg-blue-600 text-white w-12 rounded-2xl shadow-lg active:scale-90 transition-all flex items-center justify-center text-xl">➔</button>
                             </form>
                             <div className="flex flex-col items-center gap-2">
@@ -192,4 +238,3 @@
     </script>
 </body>
 </html>
-
