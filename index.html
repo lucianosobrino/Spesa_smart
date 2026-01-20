@@ -22,8 +22,6 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .compact-item { padding: 0.6rem 0.8rem; }
         textarea:focus { outline: none; }
-        .rotate-180 { transform: rotate(180deg); }
-        .transition-transform { transition: transform 0.2s ease; }
         .main-container { padding-bottom: 220px; }
         
         .toggle-switch {
@@ -44,7 +42,6 @@
         input:checked + .slider { background-color: #2563eb; }
         input:checked + .slider:before { transform: translateX(20px); }
 
-        /* Animazione Spinner */
         @keyframes spinner {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -90,12 +87,12 @@
             });
 
             const [isListening, setIsListening] = useState(false);
-            const [transcript, setTranscript] = useState('');
+            const [transcriptPreview, setTranscriptPreview] = useState('');
             const [textInput, setTextInput] = useState('');
             const [isLoading, setIsLoading] = useState(false);
             
             const recognitionRef = useRef(null);
-            const latestTranscript = useRef('');
+            const fullTranscriptRef = useRef('');
 
             useEffect(() => {
                 if (autoSave) {
@@ -108,29 +105,61 @@
             useEffect(() => {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 if (SpeechRecognition) {
-                    recognitionRef.current = new SpeechRecognition();
-                    recognitionRef.current.continuous = false;
-                    recognitionRef.current.interimResults = true;
-                    recognitionRef.current.lang = 'it-IT';
+                    const recognition = new SpeechRecognition();
+                    recognition.continuous = true;
+                    recognition.interimResults = true;
+                    recognition.lang = 'it-IT';
 
-                    recognitionRef.current.onresult = (e) => {
-                        const current = Array.from(e.results)
-                            .map(result => result[0].transcript)
-                            .join('');
-                        setTranscript(current);
-                        latestTranscript.current = current;
-                    };
-
-                    recognitionRef.current.onend = () => {
-                        setIsListening(false);
-                        if (latestTranscript.current) {
-                            setTextInput(prev => (prev ? prev + " " + latestTranscript.current : latestTranscript.current).trim());
+                    recognition.onresult = (e) => {
+                        let interim = '';
+                        let final = '';
+                        for (let i = e.resultIndex; i < e.results.length; ++i) {
+                            if (e.results[i].isFinal) {
+                                final += e.results[i][0].transcript;
+                            } else {
+                                interim += e.results[i][0].transcript;
+                            }
                         }
-                        setTranscript('');
-                        latestTranscript.current = '';
+                        // Accumuliamo il testo finale
+                        if (final) fullTranscriptRef.current += (fullTranscriptRef.current ? ' ' : '') + final;
+                        // Mostriamo l'anteprima (testo già confermato + quello che sta arrivando)
+                        setTranscriptPreview(fullTranscriptRef.current + ' ' + interim);
                     };
+
+                    recognition.onerror = (event) => {
+                        console.error("Speech Recognition Error", event.error);
+                        setIsListening(false);
+                    };
+
+                    recognition.onend = () => {
+                        setIsListening(false);
+                    };
+
+                    recognitionRef.current = recognition;
                 }
             }, []);
+
+            const toggleListening = () => {
+                if (!recognitionRef.current) return;
+
+                if (isListening) {
+                    recognitionRef.current.stop();
+                    // Alla chiusura manuale, copiamo tutto il testo accumulato nel campo di input
+                    const result = transcriptPreview.trim();
+                    if (result) {
+                        setTextInput(prev => (prev ? prev + " " + result : result).trim());
+                    }
+                    // Reset accumulo
+                    fullTranscriptRef.current = '';
+                    setTranscriptPreview('');
+                    setIsListening(false);
+                } else {
+                    fullTranscriptRef.current = '';
+                    setTranscriptPreview('');
+                    setIsListening(true);
+                    recognitionRef.current.start();
+                }
+            };
 
             const saveApiKey = (key) => {
                 localStorage.setItem('gemini_api_key', key.trim());
@@ -145,8 +174,10 @@
                 setIsLoading(true);
                 setHistory(prev => [input, ...prev].slice(0, 20));
 
-                const promptText = `Assistente spesa. Input: "${input}". 
-                Restituisci JSON: {"add": [{"n": "prodotto", "c": "categoria"}], "remove": ["nomi"], "recipe": {"title": "titolo", "query": "ricerca", "platform": "youtube"|"instagram"}}`;
+                const promptText = `Sei un assistente per la spesa. Analizza l'input: "${input}". 
+                Restituisci ESCLUSIVAMENTE un JSON con questa struttura: 
+                {"add": [{"n": "nome prodotto", "c": "categoria"}], "remove": ["nomi prodotti da togliere"], "recipe": {"title": "titolo ricetta suggerita", "query": "chiave ricerca", "platform": "youtube"|"instagram"}}. 
+                Le categorie devono essere semplici (es: Frutta, Verdura, Macelleria, Detersivi, Altro).`;
 
                 try {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -167,7 +198,9 @@
                         newList = newList.filter(i => !res.remove.some(r => i.name.toLowerCase().includes(r.toLowerCase())));
                     }
                     if (res.add) {
-                        res.add.forEach(n => newList.push({ name: n.n, category: n.c || "Altro", bought: false, id: Date.now() + Math.random() }));
+                        res.add.forEach(n => {
+                            if (n.n) newList.push({ name: n.n, category: n.c || "Altro", bought: false, id: Date.now() + Math.random() });
+                        });
                     }
                     if (res.recipe?.title) {
                         setRecipes(prev => [res.recipe, ...prev.filter(r => r.title !== res.recipe.title)].slice(0, 3));
@@ -175,6 +208,8 @@
                     setItems(newList);
                     setTextInput('');
                 } catch (e) {
+                    console.error("AI Error:", e);
+                    // Fallback: aggiungi come testo semplice se l'AI fallisce
                     setItems(prev => [...prev, { name: input, category: "Altro", bought: false, id: Date.now() }]);
                     setTextInput('');
                 } finally { 
@@ -189,8 +224,7 @@
                 }
             };
 
-            const filteredItems = hideBought ? items.filter(i => !i.bought) : items;
-            const grouped = filteredItems.reduce((acc, i) => { 
+            const grouped = (hideBought ? items.filter(i => !i.bought) : items).reduce((acc, i) => { 
                 const cat = i.category || "Altro";
                 (acc[cat] = acc[cat] || []).push(i); 
                 return acc; 
@@ -199,45 +233,41 @@
             return (
                 <div className="max-w-md mx-auto min-h-screen px-4 pt-6 main-container">
                     
-                    {/* Overlay Pensiero AI */}
+                    {/* Overlay Pensiero AI con Spinner */}
                     {isLoading && (
-                        <div className="fixed inset-0 bg-white/60 backdrop-blur-md z-[100] flex flex-col items-center justify-center">
-                            <div className="loader-spin mb-4"></div>
-                            <p className="text-blue-600 font-black uppercase text-xs tracking-widest animate-pulse">L'IA sta elaborando...</p>
+                        <div className="fixed inset-0 bg-white/70 backdrop-blur-md z-[100] flex flex-col items-center justify-center">
+                            <div className="loader-spin mb-4 shadow-xl"></div>
+                            <p className="text-blue-600 font-black uppercase text-xs tracking-widest animate-pulse">L'IA sta pensando...</p>
                         </div>
                     )}
 
-                    {/* Intestazione */}
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                                 <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                             </div>
-                            <h1 className="text-xl font-black text-slate-800 uppercase italic">Smart List</h1>
+                            <h1 className="text-xl font-black text-slate-800 uppercase italic tracking-tighter">Chef Spesa</h1>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setShowHistory(true)} className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 active:scale-95 transition-transform">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <button onClick={() => setShowHistory(true)} className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 active:scale-90 transition-transform shadow-sm">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             </button>
-                            <button onClick={() => setHideBought(!hideBought)} className={`p-2 rounded-lg border transition-all ${hideBought ? 'bg-blue-600 text-white' : 'bg-white text-slate-400'}`}>
+                            <button onClick={() => setHideBought(!hideBought)} className={`p-2 rounded-lg border transition-all shadow-sm ${hideBought ? 'bg-blue-600 text-white' : 'bg-white text-slate-400'}`}>
                                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
-                            <button onClick={resetAll} className="p-2 bg-white border border-slate-100 rounded-lg text-red-400">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
-                            <button onClick={() => setShowSettings(true)} className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400">
+                            <button onClick={() => setShowSettings(true)} className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 shadow-sm">
                                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                             </button>
                         </div>
                     </div>
 
-                    {/* Modale History */}
+                    {/* Modali (History & Settings) */}
                     {showHistory && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowHistory(false)}>
                             <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
-                                <h3 className="text-lg font-black text-slate-800 mb-4 text-center">Richieste Recenti</h3>
+                                <h3 className="text-lg font-black text-slate-800 mb-4 text-center uppercase tracking-tighter">Cronologia</h3>
                                 <div className="flex-1 overflow-y-auto space-y-2 mb-6 scrollbar-hide">
-                                    {history.length === 0 ? <p className="text-center text-slate-400 text-sm italic py-8">Cronologia vuota</p> : 
+                                    {history.length === 0 ? <p className="text-center text-slate-400 text-sm italic py-8">Ancora nessuna richiesta</p> : 
                                     history.map((h, i) => (
                                         <button key={i} onClick={() => { setTextInput(h); setShowHistory(false); }} className="w-full text-left p-3 bg-slate-50 rounded-xl text-xs font-bold text-slate-600 border border-slate-100 active:bg-slate-100">
                                             {h}
@@ -245,32 +275,31 @@
                                     ))}
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setHistory([])} className="flex-1 py-3 text-xs font-black text-red-500 uppercase">Svuota</button>
-                                    <button onClick={() => setShowHistory(false)} className="flex-1 bg-slate-800 text-white rounded-xl py-3 text-xs font-black uppercase">Chiudi</button>
+                                    <button onClick={() => setHistory([])} className="flex-1 py-3 text-xs font-black text-red-500 uppercase">Resetta</button>
+                                    <button onClick={() => setShowHistory(false)} className="flex-1 bg-slate-800 text-white rounded-xl py-3 text-xs font-black uppercase">Indietro</button>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Modale Impostazioni */}
                     {showSettings && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
                             <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-                                <h3 className="text-lg font-black text-slate-800 mb-4 text-center">Configurazioni</h3>
+                                <h3 className="text-lg font-black text-slate-800 mb-4 text-center uppercase tracking-tighter">Impostazioni</h3>
                                 <div className="space-y-4 mb-6">
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase">API Key Gemini</label>
-                                        <input type="password" id="api_input" defaultValue={apiKey} placeholder="Incolla chiave AI..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm" />
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Chiave API Gemini</label>
+                                        <input type="password" id="api_input" defaultValue={apiKey} placeholder="Inserisci API Key..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold" />
                                     </div>
                                     <div className="flex items-center justify-between py-2 border-t border-slate-100">
-                                        <p className="text-xs font-bold text-slate-700">Auto-Save Browser</p>
+                                        <p className="text-xs font-bold text-slate-700">Salvataggio automatico</p>
                                         <label className="toggle-switch">
                                             <input type="checkbox" checked={autoSave} onChange={() => setAutoSave(!autoSave)} />
                                             <span className="slider"></span>
                                         </label>
                                     </div>
                                     <div className="flex items-center justify-between py-2 border-t border-slate-100">
-                                        <p className="text-xs font-bold text-slate-700">Suggerimenti Social</p>
+                                        <p className="text-xs font-bold text-slate-700">Ricette e Social</p>
                                         <label className="toggle-switch">
                                             <input type="checkbox" checked={showSocials} onChange={() => setShowSocials(!showSocials)} />
                                             <span className="slider"></span>
@@ -278,39 +307,34 @@
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setShowSettings(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase">Indietro</button>
-                                    <button onClick={() => saveApiKey(document.getElementById('api_input').value)} className="flex-1 bg-blue-600 text-white rounded-xl py-3 text-xs font-black uppercase tracking-wide">Salva</button>
+                                    <button onClick={() => setShowSettings(false)} className="flex-1 py-3 text-xs font-bold text-slate-400 uppercase">Annulla</button>
+                                    <button onClick={() => saveApiKey(document.getElementById('api_input').value)} className="flex-1 bg-blue-600 text-white rounded-xl py-3 text-xs font-black uppercase tracking-widest">Salva</button>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Suggerimenti Ricette */}
+                    {/* Badge Ricette */}
                     {showSocials && recipes.length > 0 && (
                         <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                             {recipes.map((r, i) => (
-                                <a key={i} href={r.platform === 'instagram' ? `https://www.instagram.com/explore/tags/${r.query.replace(/\s/g, '')}` : `https://www.youtube.com/results?search_query=${r.query}`} target="_blank" className="flex-shrink-0 bg-white border rounded-xl p-3 flex items-center gap-3 active:scale-95 transition-transform">
-                                    <div className={`w-8 h-8 ${r.platform === 'instagram' ? 'bg-gradient-to-tr from-yellow-400 to-purple-600' : 'bg-red-600'} rounded-full flex items-center justify-center text-white text-[10px]`}>
+                                <a key={i} href={r.platform === 'instagram' ? `https://www.instagram.com/explore/tags/${r.query.replace(/\s/g, '')}` : `https://www.youtube.com/results?search_query=${r.query}`} target="_blank" className="flex-shrink-0 bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 active:scale-95 transition-transform shadow-sm">
+                                    <div className={`w-8 h-8 ${r.platform === 'instagram' ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600' : 'bg-red-600'} rounded-full flex items-center justify-center text-white text-[10px] font-black`}>
                                         {r.platform === 'instagram' ? 'IG' : 'YT'}
                                     </div>
-                                    <p className="text-xs font-bold text-slate-700 truncate w-24">{r.title}</p>
+                                    <p className="text-[11px] font-bold text-slate-700 truncate w-24 uppercase">{r.title}</p>
                                 </a>
                             ))}
                         </div>
                     )}
 
-                    {/* Intestazione Sezioni */}
-                    <div className="flex justify-between items-center mb-4 px-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Organizzazione Spesa</p>
-                    </div>
-
-                    {/* Lista Spesa */}
+                    {/* Lista Prodotti */}
                     <div className="space-y-4">
                         {Object.entries(grouped).sort().map(([cat, list]) => (
                             <div key={cat}>
-                                <button onClick={() => setCollapsedCats(prev => ({...prev, [cat]: !prev[cat]}))} className="w-full flex justify-between items-center mb-1 group">
-                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-active:text-blue-500">{cat} ({list.length})</h2>
-                                    <svg viewBox="0 0 24 24" width="12" height="12" className={`transition-transform text-slate-300 ${collapsedCats[cat] ? '' : 'rotate-180'}`} stroke="currentColor" strokeWidth="4" fill="none"><polyline points="6 9 12 15 18 9"/></svg>
+                                <button onClick={() => setCollapsedCats(prev => ({...prev, [cat]: !prev[cat]}))} className="w-full flex justify-between items-center mb-1 group px-1">
+                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] group-active:text-blue-500">{cat} — {list.length}</h2>
+                                    <svg viewBox="0 0 24 24" width="10" height="10" className={`transition-transform text-slate-300 ${collapsedCats[cat] ? 'rotate-90' : 'rotate-180'}`} stroke="currentColor" strokeWidth="4" fill="none"><polyline points="6 9 12 15 18 9"/></svg>
                                 </button>
                                 {!collapsedCats[cat] && (
                                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-50 overflow-hidden">
@@ -320,7 +344,7 @@
                                                     {item.bought && <svg viewBox="0 0 24 24" width="12" height="12" stroke="white" strokeWidth="4" fill="none"><polyline points="20 6 9 17 4 12"/></svg>}
                                                 </div>
                                                 <span className={`flex-1 text-sm font-bold truncate ${item.bought ? 'line-through text-slate-300' : 'text-slate-700'}`}>{item.name}</span>
-                                                <button onClick={(e) => {e.stopPropagation(); setItems(items.filter(i => i.id !== item.id))}} className="text-slate-200 p-2 text-xl leading-none hover:text-red-300">×</button>
+                                                <button onClick={(e) => {e.stopPropagation(); setItems(items.filter(i => i.id !== item.id))}} className="text-slate-200 p-2 text-xl leading-none hover:text-red-400">×</button>
                                             </div>
                                         ))}
                                     </div>
@@ -328,46 +352,48 @@
                             </div>
                         ))}
                         {items.length === 0 && (
-                            <div className="py-20 text-center flex flex-col items-center gap-2 opacity-20">
-                                <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" strokeWidth="1.5" fill="none"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                                <p className="italic text-sm font-bold">Inizia a dettare o scrivere...</p>
+                            <div className="py-24 text-center flex flex-col items-center gap-4 opacity-10">
+                                <svg viewBox="0 0 24 24" width="60" height="60" stroke="currentColor" strokeWidth="1" fill="none"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                                <p className="italic text-sm font-bold uppercase tracking-widest">La tua lista è vuota</p>
                             </div>
                         )}
                     </div>
 
-                    {/* Area Input Fissa */}
-                    <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-slate-100 via-slate-100/90 to-transparent">
+                    {/* Area Controllo Input */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 pb-10 bg-gradient-to-t from-slate-100 via-slate-100/95 to-transparent">
                         <div className="max-w-md mx-auto flex items-end gap-2 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2">
+                            
+                            {/* Bottone Microfono Toggle */}
                             <button 
-                                onMouseDown={(e) => { 
-                                    e.preventDefault(); 
-                                    if (isListening) return;
-                                    setIsListening(true); 
-                                    try { recognitionRef.current?.start(); } catch(err) { setIsListening(false); }
-                                }}
-                                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-50 text-slate-400 active:bg-slate-200'}`}
+                                onClick={toggleListening}
+                                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm ${isListening ? 'bg-red-500 text-white' : 'bg-slate-50 text-slate-400 active:bg-slate-200'}`}
                             >
-                                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2.5" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                                {isListening ? (
+                                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="3" fill="none" className="animate-pulse"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                                ) : (
+                                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2.5" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                                )}
                             </button>
                             
                             <div className="flex-1 relative">
                                 {isListening && (
-                                    <div className="absolute inset-0 bg-white z-10 flex items-center px-2 text-[13px] italic text-blue-500 font-bold overflow-hidden">
-                                        <span className="animate-pulse mr-2">●</span> {transcript || "In ascolto..."}
+                                    <div className="absolute inset-0 bg-white/95 z-20 flex items-center px-2 text-[13px] italic text-blue-600 font-bold overflow-hidden leading-tight">
+                                        <span className="animate-ping mr-2 h-2 w-2 rounded-full bg-blue-500"></span> 
+                                        {transcriptPreview || "Sto ascoltando..."}
                                     </div>
                                 )}
                                 <textarea 
                                     value={textInput} 
                                     onChange={(e) => setTextInput(e.target.value)} 
-                                    placeholder="Dì qualcosa o scrivi..." 
-                                    className="w-full bg-transparent px-2 py-2 text-[13px] font-bold text-slate-700 resize-none min-h-[44px] max-h-32" 
+                                    placeholder="Scrivi o usa il microfono..." 
+                                    className="w-full bg-transparent px-2 py-3 text-[13px] font-bold text-slate-700 resize-none min-h-[48px] max-h-32 scrollbar-hide" 
                                 />
                             </div>
 
                             <button 
                                 onClick={() => processWithAI(textInput)} 
-                                disabled={isLoading || !textInput.trim()} 
-                                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm ${textInput.trim() ? 'bg-blue-600 text-white active:scale-95' : 'bg-slate-100 text-slate-300'}`}
+                                disabled={isLoading || !textInput.trim() || isListening} 
+                                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm ${textInput.trim() && !isListening ? 'bg-blue-600 text-white active:scale-90' : 'bg-slate-100 text-slate-300 pointer-events-none'}`}
                             >
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                             </button>
