@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart List Chef - Fixed Voice Edition</title>
+    <title>Smart Grocery Chef Pro</title>
     
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z' fill='%232563eb'/%3E%3Ccircle cx='13' cy='7' r='4' fill='%23fbbf24'/%3E%3C/svg%3E">
 
@@ -14,38 +14,55 @@
 
     <style>
         body { 
-            padding-bottom: env(safe-area-inset-bottom); 
-            overflow-x: hidden; 
-            -webkit-font-smoothing: antialiased;
             background-color: #f8fafc;
+            -webkit-font-smoothing: antialiased;
+            overscroll-behavior-y: contain;
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .compact-item { padding: 0.6rem 0.8rem; }
-        textarea:focus { outline: none; }
-        .main-container { padding-bottom: 220px; }
+        .main-container { padding-bottom: 160px; }
         
         .toggle-switch {
             position: relative;
             display: inline-block;
-            width: 40px;
-            height: 20px;
+            width: 44px;
+            height: 24px;
         }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .slider {
             position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #cbd5e1; transition: .4s; border-radius: 20px;
+            background-color: #cbd5e1; transition: .4s; border-radius: 24px;
         }
         .slider:before {
-            position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px;
+            position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
             background-color: white; transition: .4s; border-radius: 50%;
         }
         input:checked + .slider { background-color: #2563eb; }
         input:checked + .slider:before { transform: translateX(20px); }
 
+        /* Tooltip simple style */
+        .has-tooltip { position: relative; }
+        .tooltip {
+            visibility: hidden;
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            white-space: nowrap;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .has-tooltip:hover .tooltip { visibility: visible; opacity: 1; }
+
         @keyframes spin { to { transform: rotate(360deg); } }
         .mini-loader {
-            width: 14px;
-            height: 14px;
+            width: 16px;
+            height: 16px;
             border: 2px solid #ffffff;
             border-top-color: transparent;
             border-radius: 50%;
@@ -57,368 +74,335 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
         const App = () => {
-            const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
-            const [showSettings, setShowSettings] = useState(!localStorage.getItem('gemini_api_key'));
+            const [apiKey, setApiKey] = useState(() => localStorage.getItem('chef_api_key') || '');
+            const [items, setItems] = useState(() => JSON.parse(localStorage.getItem('chef_items') || '[]'));
+            const [recipes, setRecipes] = useState(() => JSON.parse(localStorage.getItem('chef_recipes') || '[]'));
+            const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('chef_history') || '[]'));
+            const [autoSave, setAutoSave] = useState(() => localStorage.getItem('chef_autosave') !== 'false');
+            const [showSocial, setShowSocial] = useState(() => localStorage.getItem('chef_show_social') !== 'false');
+
+            const [showSettings, setShowSettings] = useState(!apiKey);
             const [showHistory, setShowHistory] = useState(false);
             const [showConfirmReset, setShowConfirmReset] = useState(false);
-            const [hideBought, setHideBought] = useState(false);
+            const [hideBought, setHideBought] = useState(false); 
             const [collapsedCats, setCollapsedCats] = useState({});
-            const [autoSave, setAutoSave] = useState(() => localStorage.getItem('smart_chef_autosave') !== 'false');
-            const [showSocials, setShowSocials] = useState(() => localStorage.getItem('smart_chef_show_socials') !== 'false');
-
-            const [items, setItems] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_items_v13');
-                return saved ? JSON.parse(saved) : [];
-            });
-            
-            const [recipes, setRecipes] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_recipes_v13');
-                return saved ? JSON.parse(saved) : [];
-            });
-
-            const [history, setHistory] = useState(() => {
-                const saved = localStorage.getItem('smart_chef_history');
-                return saved ? JSON.parse(saved) : [];
-            });
-
-            const [isListening, setIsListening] = useState(false);
-            const [textInput, setTextInput] = useState('');
             const [isLoading, setIsLoading] = useState(false);
-            
-            const recognitionRef = useRef(null);
+            const [textInput, setTextInput] = useState('');
 
             useEffect(() => {
                 if (autoSave) {
-                    localStorage.setItem('smart_chef_items_v13', JSON.stringify(items));
-                    localStorage.setItem('smart_chef_recipes_v13', JSON.stringify(recipes));
-                    localStorage.setItem('smart_chef_history', JSON.stringify(history));
+                    localStorage.setItem('chef_items', JSON.stringify(items));
+                    localStorage.setItem('chef_recipes', JSON.stringify(recipes));
+                    localStorage.setItem('chef_history', JSON.stringify(history));
+                    localStorage.setItem('chef_show_social', showSocial);
                 }
-            }, [items, recipes, history, autoSave]);
-
-            // Speech Recognition Setup
-            useEffect(() => {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (SpeechRecognition) {
-                    const rec = new SpeechRecognition();
-                    rec.continuous = true;
-                    rec.interimResults = true;
-                    rec.lang = 'it-IT';
-
-                    rec.onresult = (event) => {
-                        let finalTranscript = '';
-                        for (let i = event.resultIndex; i < event.results.length; ++i) {
-                            if (event.results[i].isFinal) {
-                                finalTranscript += event.results[i][0].transcript;
-                            }
-                        }
-                        if (finalTranscript) {
-                            setTextInput(prev => (prev ? prev + ' ' + finalTranscript.trim() : finalTranscript.trim()));
-                        }
-                    };
-
-                    rec.onend = () => {
-                        setIsListening(false);
-                    };
-
-                    rec.onerror = (e) => {
-                        console.error("Speech Error:", e.error);
-                        setIsListening(false);
-                    };
-
-                    recognitionRef.current = rec;
-                }
-            }, []);
-
-            const toggleListening = () => {
-                if (!recognitionRef.current) return;
-                
-                if (isListening) {
-                    recognitionRef.current.stop();
-                } else {
-                    try {
-                        recognitionRef.current.start();
-                        setIsListening(true);
-                    } catch (e) {
-                        console.error("Failed to start recognition", e);
-                    }
-                }
-            };
-
-            const toggleAllCats = (collapse) => {
-                const cats = [...new Set(items.map(i => i.category || "Altro"))];
-                const newState = {};
-                cats.forEach(c => newState[c] = collapse);
-                setCollapsedCats(newState);
-            };
+            }, [items, recipes, history, autoSave, showSocial]);
 
             const processWithAI = async (input) => {
-                const trimmedInput = input.trim();
-                if (!trimmedInput || isLoading) return;
+                const query = input.trim();
+                if (!query || isLoading) return;
                 if (!apiKey) { setShowSettings(true); return; }
-                
-                if (isListening) {
-                    recognitionRef.current.stop();
-                }
 
                 setIsLoading(true);
-                const currentHistory = [trimmedInput, ...history].slice(0, 20);
-                setHistory(currentHistory);
+                setHistory(prev => [query, ...prev.filter(h => h !== query)].slice(0, 20));
 
-                const promptText = `Sei un esperto di spesa. Analizza il comando: "${trimmedInput}". 
-                Restituisci ESCLUSIVAMENTE un JSON con questa struttura:
+                // Prompt più stringente sulle categorie
+                const systemPrompt = `Sei un esperto di spesa. Analizza l'input e restituisci SOLO JSON.
+                REGOLE CATEGORIE (USA ESATTAMENTE QUESTE): 
+                "Frutta e Verdura", "Macelleria", "Pescheria", "Latticini", "Surgelati", "Forno", "Dispensa", "Bevande", "Detersivi", "Igiene".
+                Se non sai dove metterlo, usa "Altro".
+                1. Se l'utente chiede una ricetta, elenca tutti gli ingredienti in 'add'.
+                2. Se dice "togli [x]", mettilo in 'remove'.
+                FORMATO:
                 {
-                    "add": [{"n": "nome prodotto", "c": "CATEGORIA"}],
-                    "remove": ["nomi prodotti da togliere"],
-                    "recipe": {"title": "Titolo Ricetta", "query": "cosa cercare", "platform": "youtube"|"instagram"}
-                }
-                Categorie ammesse: Frutta e Verdura, Macelleria, Pescheria, Latticini, Surgelati, Forno, Dispensa, Bevande, Detersivi, Igiene, Altro.`;
+                    "add": [{"n": "nome prodotto", "c": "CATEGORIA SCRITTA CORRETTAMENTE"}],
+                    "remove": ["nome"],
+                    "recipe": {"title": "Titolo", "query": "ricerca", "platform": "youtube"}
+                }`;
 
                 try {
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: promptText }] }],
+                            contents: [{ parts: [{ text: `Input: "${query}"` }] }],
+                            systemInstruction: { parts: [{ text: systemPrompt }] },
                             generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
                         })
                     });
 
                     const data = await response.json();
-                    const res = JSON.parse(data.candidates[0].content.parts[0].text);
+                    const result = JSON.parse(data.candidates[0].content.parts[0].text);
                     
                     let newList = [...items];
-                    if (res.remove?.length) {
-                        newList = newList.filter(i => !res.remove.some(r => i.name.toLowerCase().includes(r.toLowerCase())));
+                    if (result.remove?.length) {
+                        newList = newList.filter(i => !result.remove.some(r => i.name.toLowerCase().includes(r.toLowerCase())));
                     }
-                    if (res.add?.length) {
-                        res.add.forEach(n => {
-                            if (n.n) newList.push({ name: n.n, category: n.c || "Altro", bought: false, id: Date.now() + Math.random() });
+                    if (result.add?.length) {
+                        result.add.forEach(a => {
+                            if (a.n && !newList.some(existing => existing.name.toLowerCase() === a.n.toLowerCase())) {
+                                newList.push({ 
+                                    id: Date.now() + Math.random(), 
+                                    name: a.n, 
+                                    category: a.c || "Altro", 
+                                    bought: false 
+                                });
+                            }
                         });
                     }
-                    if (res.recipe?.title) {
-                        setRecipes(prev => [res.recipe, ...prev.filter(r => r.title !== res.recipe.title)].slice(0, 3));
+                    if (result.recipe?.title) {
+                        setRecipes(prev => [result.recipe, ...prev.filter(r => r.title !== result.recipe.title)].slice(0, 4));
                     }
+                    
                     setItems(newList);
                     setTextInput('');
                 } catch (e) {
-                    setItems(prev => [...prev, { name: trimmedInput, category: "Altro", bought: false, id: Date.now() }]);
+                    setItems(prev => [...prev, { id: Date.now(), name: query, category: "Altro", bought: false }]);
                     setTextInput('');
-                } finally { 
-                    setIsLoading(false); 
+                } finally {
+                    setIsLoading(false);
                 }
             };
 
-            const clearBought = () => setItems(items.filter(i => !i.bought));
-            const performFullReset = () => {
-                setItems([]);
-                setRecipes([]);
-                setShowConfirmReset(false);
-            };
+            const toggleItem = (id) => setItems(items.map(i => i.id === id ? {...i, bought: !i.bought} : i));
+            const deleteItem = (id) => setItems(items.filter(i => i.id !== id));
+            const clearBoughtItems = () => setItems(items.filter(i => !i.bought));
 
-            const grouped = (hideBought ? items.filter(i => !i.bought) : items).reduce((acc, i) => { 
-                const cat = i.category || "Altro";
-                (acc[cat] = acc[cat] || []).push(i); 
-                return acc; 
-            }, {});
+            const groupedItems = useMemo(() => {
+                const filtered = hideBought ? items.filter(i => !i.bought) : items;
+                return filtered.reduce((acc, item) => {
+                    const cat = item.category || "Altro";
+                    if (!acc[cat]) acc[cat] = [];
+                    acc[cat].push(item);
+                    return acc;
+                }, {});
+            }, [items, hideBought]);
+
+            const areAllCollapsed = useMemo(() => {
+                const keys = Object.keys(groupedItems);
+                if (keys.length === 0) return false;
+                return keys.every(k => collapsedCats[k] === true);
+            }, [collapsedCats, groupedItems]);
+
+            const toggleGlobalCollapse = () => {
+                const newState = !areAllCollapsed;
+                const newObj = {};
+                Object.keys(groupedItems).forEach(c => newObj[c] = newState);
+                setCollapsedCats(newObj);
+            };
 
             return (
                 <div className="max-w-md mx-auto min-h-screen px-4 pt-6 main-container">
                     
-                    {/* Header */}
+                    {/* Header Compatto con tutte le azioni */}
                     <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                                <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-md">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                             </div>
-                            <h1 className="text-xl font-black text-slate-800 uppercase italic tracking-tighter">Chef Spesa</h1>
+                            <h1 className="text-lg font-black text-slate-800 tracking-tighter italic uppercase">Chef Spesa</h1>
                         </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => setShowHistory(true)} className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 active:scale-90 shadow-sm">
+                        
+                        <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-sm gap-0.5">
+                            {/* AZIONI LISTA */}
+                            <button onClick={() => setHideBought(!hideBought)} className="has-tooltip p-2 text-slate-400 hover:text-blue-600 active:scale-90 transition-all">
+                                {hideBought ? 
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> :
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                }
+                                <span className="tooltip">{hideBought ? 'Mostra presi' : 'Nascondi presi'}</span>
+                            </button>
+
+                            <button onClick={toggleGlobalCollapse} className="has-tooltip p-2 text-slate-400 hover:text-slate-600 active:scale-90 transition-all">
+                                {areAllCollapsed ? 
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg> :
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>
+                                }
+                                <span className="tooltip">{areAllCollapsed ? 'Espandi tutti' : 'Riduci tutti'}</span>
+                            </button>
+
+                            <div className="w-[1px] h-4 bg-slate-200 mx-1"></div>
+
+                            <button onClick={clearBoughtItems} className="has-tooltip p-2 text-slate-400 hover:text-orange-500 active:scale-90 transition-all">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/><path d="M3 6h18" opacity="0.3"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" opacity="0.3"/></svg>
+                                <span className="tooltip">Pulisci presi</span>
+                            </button>
+
+                            <button onClick={() => setShowConfirmReset(true)} className="has-tooltip p-2 text-slate-400 hover:text-red-500 active:scale-90 transition-all">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                <span className="tooltip">Svuota lista</span>
+                            </button>
+
+                            <div className="w-[1px] h-4 bg-slate-200 mx-1"></div>
+
+                            {/* SISTEMA */}
+                            <button onClick={() => setShowHistory(true)} className="has-tooltip p-2 text-slate-400 hover:text-slate-600 active:scale-90 transition-all">
                                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span className="tooltip">Cronologia</span>
                             </button>
-                            <button onClick={() => setShowSettings(true)} className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 shadow-sm">
+
+                            <button onClick={() => setShowSettings(true)} className="has-tooltip p-2 text-slate-400 hover:text-slate-600 active:scale-90 transition-all">
                                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                <span className="tooltip">Impostazioni</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* Toolbar Rapida */}
-                    <div className="flex flex-col gap-3 mb-6">
-                        <div className="flex justify-between items-center px-1">
-                            <div className="flex gap-2">
-                                <button onClick={() => toggleAllCats(false)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1.5 rounded-lg border border-blue-100 uppercase">Espandi</button>
-                                <button onClick={() => toggleAllCats(true)} className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1.5 rounded-lg border border-slate-200 uppercase">Collassa</button>
+                    {showSocial && recipes.length > 0 && (
+                        <div className="mb-6">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Consigli Cucina</h3>
+                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                {recipes.map((r, i) => (
+                                    <a key={i} href={r.platform === 'instagram' ? `https://www.instagram.com/explore/tags/${r.query.replace(/\s/g, '')}` : `https://www.youtube.com/results?search_query=${r.query}`} target="_blank" className="flex-shrink-0 bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3 active:scale-95 shadow-sm">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-black ${r.platform === 'instagram' ? 'bg-gradient-to-tr from-yellow-400 to-purple-600' : 'bg-red-600'}`}>
+                                            {r.platform === 'instagram' ? 'IG' : 'YT'}
+                                        </div>
+                                        <div className="pr-2">
+                                            <p className="text-[11px] font-black text-slate-700 uppercase">{r.title}</p>
+                                        </div>
+                                    </a>
+                                ))}
                             </div>
-                            <div className="flex gap-2">
-                                <button onClick={clearBought} className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1.5 rounded-lg border border-orange-100 uppercase">Rimuovi Presi</button>
-                                <button onClick={() => setShowConfirmReset(true)} className="text-[10px] font-bold text-white bg-red-500 px-2 py-1.5 rounded-lg shadow-sm uppercase">Svuota Tutto</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Social/Ricette */}
-                    {showSocials && recipes.length > 0 && (
-                        <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                            {recipes.map((r, i) => (
-                                <a key={i} href={r.platform === 'instagram' ? `https://www.instagram.com/explore/tags/${r.query.replace(/\s/g, '')}` : `https://www.youtube.com/results?search_query=${r.query}`} target="_blank" className="flex-shrink-0 bg-white border border-slate-100 rounded-xl p-3 flex items-center gap-3 active:scale-95 shadow-sm">
-                                    <div className={`w-8 h-8 ${r.platform === 'instagram' ? 'bg-gradient-to-tr from-yellow-400 via-red-500' : 'bg-red-600'} rounded-full flex items-center justify-center text-white text-[10px] font-black`}>
-                                        {r.platform === 'instagram' ? 'IG' : 'YT'}
-                                    </div>
-                                    <p className="text-[11px] font-bold text-slate-700 truncate w-24 uppercase">{r.title}</p>
-                                </a>
-                            ))}
                         </div>
                     )}
 
                     {/* Lista Prodotti */}
                     <div className="space-y-4">
-                        {Object.entries(grouped).sort().map(([cat, list]) => (
+                        {Object.entries(groupedItems).sort().map(([cat, list]) => (
                             <div key={cat}>
-                                <button onClick={() => setCollapsedCats(prev => ({...prev, [cat]: !prev[cat]}))} className="w-full flex justify-between items-center mb-1 px-1">
-                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{cat} — {list.length}</h2>
-                                    <svg viewBox="0 0 24 24" width="10" height="10" className={`transition-transform text-slate-300 ${collapsedCats[cat] ? 'rotate-90' : 'rotate-180'}`} stroke="currentColor" strokeWidth="4" fill="none"><polyline points="6 9 12 15 18 9"/></svg>
+                                <button onClick={() => setCollapsedCats(prev => ({...prev, [cat]: !prev[cat]}))} className="w-full flex justify-between items-center px-1 mb-1.5">
+                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{cat} • {list.length}</h2>
+                                    <div className={`transition-transform duration-300 ${collapsedCats[cat] ? '' : 'rotate-180'}`}>
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-300"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
                                 </button>
                                 {!collapsedCats[cat] && (
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
                                         {list.map(item => (
-                                            <div key={item.id} className="compact-item flex items-center active:bg-slate-50 transition-colors" onClick={() => setItems(items.map(i => i.id === item.id ? {...i, bought: !i.bought} : i))}>
-                                                <div className={`w-5 h-5 rounded-lg border-2 mr-3 flex items-center justify-center transition-all ${item.bought ? 'bg-green-500 border-green-500' : 'border-slate-200'}`}>
-                                                    {item.bought && <svg viewBox="0 0 24 24" width="12" height="12" stroke="white" strokeWidth="4" fill="none"><polyline points="20 6 9 17 4 12"/></svg>}
+                                            <div key={item.id} className="flex items-center p-3.5 active:bg-slate-50" onClick={() => toggleItem(item.id)}>
+                                                <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center mr-3 ${item.bought ? 'bg-green-500 border-green-500' : 'border-slate-200'}`}>
+                                                    {item.bought && <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>}
                                                 </div>
-                                                <span className={`flex-1 text-sm font-bold truncate ${item.bought ? 'line-through text-slate-300' : 'text-slate-700'}`}>{item.name}</span>
-                                                <button onClick={(e) => {e.stopPropagation(); setItems(items.filter(i => i.id !== item.id))}} className="text-slate-200 p-2 text-xl leading-none hover:text-red-400">×</button>
+                                                <span className={`flex-1 text-sm font-bold truncate ${item.bought ? 'line-through text-slate-300 italic' : 'text-slate-700'}`}>
+                                                    {item.name}
+                                                </span>
+                                                <button onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }} className="p-1 text-slate-200 hover:text-red-400">
+                                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
                         ))}
-                        {items.length === 0 && (
-                            <div className="py-20 text-center">
-                                <p className="text-slate-300 text-sm font-bold uppercase tracking-widest italic">La lista è vuota</p>
+                        {items.length === 0 && !isLoading && (
+                            <div className="py-20 text-center opacity-20 flex flex-col items-center">
+                                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                                <p className="mt-4 text-xs font-black uppercase tracking-widest">Lista vuota</p>
                             </div>
                         )}
                     </div>
 
-                    {/* Barra Input Fissa */}
-                    <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-slate-100 via-slate-100/95 to-transparent z-40">
+                    {/* Input Area */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-slate-100 via-slate-100/90 to-transparent z-40">
                         <div className="max-w-md mx-auto relative">
                             {isLoading && (
-                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-xl animate-bounce z-50">
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-xl">
                                     <div className="mini-loader"></div>
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-white">Elaborazione...</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Analisi AI...</span>
                                 </div>
                             )}
 
-                            <div className="flex items-end gap-2 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2">
-                                <button 
-                                    onClick={toggleListening} 
-                                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm ${isListening ? 'bg-red-500 text-white ring-4 ring-red-100 scale-105' : 'bg-slate-50 text-slate-400'}`}
-                                >
-                                    {isListening ? (
-                                        <div className="flex gap-1 items-center">
-                                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></span>
-                                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:0.4s]"></span>
-                                        </div>
-                                    ) : (
-                                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2.5" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-                                    )}
-                                </button>
-                                
-                                <div className="flex-1">
+                            <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-200 p-2 flex items-end gap-2 ring-1 ring-black/5">
+                                <div className="flex-1 pb-1 ml-4">
                                     <textarea 
                                         value={textInput} 
                                         onChange={(e) => setTextInput(e.target.value)} 
-                                        placeholder={isListening ? "Parla ora..." : "Aggiungi prodotti..."} 
-                                        className={`w-full bg-transparent px-2 py-3 text-[13px] font-bold text-slate-700 resize-none min-h-[48px] max-h-32 transition-colors ${isListening ? 'placeholder-red-400' : 'placeholder-slate-300'}`} 
+                                        onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); processWithAI(textInput); } }}
+                                        placeholder="Esempio: ingredienti per carbonara..." 
+                                        className="w-full bg-transparent py-4 text-sm font-bold text-slate-700 resize-none max-h-32 min-h-[48px] focus:outline-none" 
+                                        rows="1" 
                                     />
                                 </div>
-
                                 <button 
                                     onClick={() => processWithAI(textInput)} 
-                                    disabled={isLoading || !textInput.trim()} 
-                                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${textInput.trim() ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-100 text-slate-300 opacity-50'}`}
+                                    disabled={!textInput.trim() || isLoading} 
+                                    className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 transition-all ${textInput.trim() ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 active:scale-95' : 'bg-slate-100 text-slate-300'}`}
                                 >
-                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Modal Conferma Reset */}
+                    {/* Modali */}
                     {showConfirmReset && (
-                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
-                            <div className="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl text-center">
-                                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <svg viewBox="0 0 24 24" width="32" height="32" className="text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                                </div>
-                                <h3 className="text-lg font-black text-slate-800 mb-2">Svuota tutto?</h3>
-                                <p className="text-sm font-medium text-slate-500 mb-6 uppercase tracking-tight">Cancellando la lista non potrai più recuperarla.</p>
-                                <div className="space-y-3">
-                                    <button onClick={performFullReset} className="w-full bg-red-500 text-white rounded-xl py-3 text-xs font-black uppercase tracking-widest shadow-lg shadow-red-100">Sì, svuota</button>
-                                    <button onClick={() => setShowConfirmReset(false)} className="w-full bg-slate-100 text-slate-600 rounded-xl py-3 text-xs font-black uppercase tracking-widest">Annulla</button>
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6" onClick={() => setShowConfirmReset(false)}>
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-xs p-8 shadow-2xl text-center" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-xl font-black text-slate-800 mb-2 uppercase italic tracking-tighter">Svuota tutto?</h3>
+                                <p className="text-slate-400 text-xs font-bold leading-relaxed mb-8 uppercase tracking-widest">Perderai tutti i prodotti in lista.</p>
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={() => { setItems([]); setRecipes([]); setShowConfirmReset(false); }} className="w-full bg-red-500 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest">Svuota ora</button>
+                                    <button onClick={() => setShowConfirmReset(false)} className="w-full bg-slate-100 text-slate-500 rounded-2xl py-4 text-xs font-black uppercase tracking-widest">Annulla</button>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Modal Cronologia */}
                     {showHistory && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowHistory(false)}>
-                            <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
-                                <h3 className="text-lg font-black text-slate-800 mb-4 text-center uppercase tracking-tighter">Cronologia</h3>
-                                <div className="flex-1 overflow-y-auto space-y-2 mb-6 scrollbar-hide">
-                                    {history.length > 0 ? history.map((h, i) => (
-                                        <button key={i} onClick={() => { setTextInput(h); setShowHistory(false); }} className="w-full text-left p-3 bg-slate-50 rounded-xl text-xs font-bold text-slate-600 border border-slate-100 italic truncate">
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end justify-center" onClick={() => setShowHistory(false)}>
+                            <div className="bg-white rounded-t-[2.5rem] w-full max-w-md p-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-black text-slate-800 mb-6 text-center uppercase">Ultimi comandi</h3>
+                                <div className="space-y-3 max-h-[40vh] overflow-y-auto pb-6 scrollbar-hide">
+                                    {history.length === 0 && <p className="text-center text-slate-300 py-10 font-bold uppercase text-[10px]">Nessuna storia</p>}
+                                    {history.map((h, i) => (
+                                        <button key={i} onClick={() => { setTextInput(h); setShowHistory(false); }} className="w-full text-left p-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black text-slate-600 truncate active:scale-[0.98] uppercase">
                                             "{h}"
                                         </button>
-                                    )) : <p className="text-center text-slate-300 py-10 font-bold uppercase text-[10px]">Nessuna voce</p>}
+                                    ))}
                                 </div>
-                                <button onClick={() => setShowHistory(false)} className="w-full bg-slate-800 text-white rounded-xl py-3 text-xs font-black uppercase tracking-widest">Chiudi</button>
+                                <button onClick={() => setShowHistory(false)} className="w-full bg-slate-800 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest mt-4">Chiudi</button>
                             </div>
                         </div>
                     )}
 
                     {showSettings && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-                            <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-                                <h3 className="text-lg font-black text-slate-800 mb-4 text-center uppercase tracking-tighter">Impostazioni</h3>
-                                <div className="space-y-4 mb-6">
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Chiave API Gemini</label>
-                                        <input type="password" id="api_input" defaultValue={apiKey} placeholder="Inserisci API Key..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold" />
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-6">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl">
+                                <h3 className="text-xl font-black text-slate-800 mb-8 text-center uppercase italic">Configurazione</h3>
+                                <div className="space-y-4 mb-10">
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Gemini API Key</label>
+                                        <input type="password" id="key_field" defaultValue={apiKey} placeholder="Inserisci chiave..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-blue-500 outline-none" />
                                     </div>
-                                    <div className="flex items-center justify-between py-2 border-t border-slate-100">
-                                        <p className="text-xs font-bold text-slate-700">Salvataggio automatico</p>
+                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Auto-Salvataggio</span>
                                         <label className="toggle-switch">
                                             <input type="checkbox" checked={autoSave} onChange={() => setAutoSave(!autoSave)} />
                                             <span className="slider"></span>
                                         </label>
                                     </div>
-                                    <div className="flex items-center justify-between py-2 border-t border-slate-100">
-                                        <p className="text-xs font-bold text-slate-700">Ricette e Social</p>
+                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Consigli Social</span>
                                         <label className="toggle-switch">
-                                            <input type="checkbox" checked={showSocials} onChange={() => setShowSocials(!showSocials)} />
+                                            <input type="checkbox" checked={showSocial} onChange={() => setShowSocial(!showSocial)} />
                                             <span className="slider"></span>
                                         </label>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => {
-                                        const k = document.getElementById('api_input').value;
-                                        localStorage.setItem('gemini_api_key', k.trim());
-                                        setApiKey(k.trim());
-                                        setShowSettings(false);
-                                    }} className="flex-1 bg-blue-600 text-white rounded-xl py-3 text-xs font-black uppercase tracking-widest">Salva</button>
-                                    <button onClick={() => setShowSettings(false)} className="p-3 bg-slate-100 text-slate-400 rounded-xl">Chiudi</button>
-                                </div>
+                                <button onClick={() => {
+                                    const val = document.getElementById('key_field').value.trim();
+                                    setApiKey(val);
+                                    localStorage.setItem('chef_api_key', val);
+                                    setShowSettings(false);
+                                }} className="w-full bg-blue-600 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-200">Salva e Chiudi</button>
                             </div>
                         </div>
                     )}
+
                 </div>
             );
         };
