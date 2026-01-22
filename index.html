@@ -165,6 +165,26 @@
                 }, {});
             }, [items, hideBought]);
 
+			const areAllCollapsed = useMemo(() => {
+			  const keys = Object.keys(groupedItems);
+			  if (keys.length === 0) return false;
+			  return keys.every(k => collapsedCats[k] === true);
+			}, [collapsedCats, groupedItems]);
+			
+			const toggleGlobalCollapse = () => {
+			  const newState = !areAllCollapsed;
+			  const newObj = {};
+			  Object.keys(groupedItems).forEach(c => {
+			    newObj[c] = newState;
+			  });
+			  setCollapsedCats(newObj);
+			};
+
+			const clearBoughtItems = () => {
+			  setItems(prev => prev.filter(i => !i.bought));
+			};
+
+
             return (
                 <div className="max-w-md mx-auto min-h-screen px-4 pt-6 main-container">
 				
