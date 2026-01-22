@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Grocery Chef Pro</title>
     
     <link rel="icon" type="image/png" href="SpesaSmart.png?v=1">
@@ -86,7 +86,7 @@
                     localStorage.setItem('chef_items', JSON.stringify(items));
                     localStorage.setItem('chef_recipes', JSON.stringify(recipes));
                     localStorage.setItem('chef_history', JSON.stringify(history));
-                    localStorage.setItem('chef_ai_enabled', aiEnabled);
+                    localStorage.setItem('chef_ai_enabled', aiEnabled ? 'true' : 'false');
                 }
             }, [items, recipes, history, autoSave, aiEnabled]);
 
@@ -148,6 +148,8 @@
                 setItems(prev => [...prev, { id: Date.now() + Math.random(), name, category: cat || "Altro", bought: false }]);
                 if (currentPendingIndex + 1 >= pendingCategoryItems.length) {
                     setCategoryWizardOpen(false);
+                    setPendingCategoryItems([]);
+                    setCurrentPendingIndex(0);
                 } else {
                     setCurrentPendingIndex(idx => idx + 1);
                 }
