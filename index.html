@@ -222,25 +222,45 @@
                             </div>
                         </div>
                     </div>
-
-                    {showSettings && (
+					
+                 {showSettings && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-6">
                             <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl">
                                 <h3 className="text-xl font-black text-slate-800 mb-8 text-center uppercase italic">Configurazione</h3>
                                 <div className="space-y-4 mb-10">
                                     <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Gemini API Key</label>
-                                        <input type="password" id="key_field" defaultValue={apiKey} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold" />
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Gemini API Key</label>
+                                        <input type="password" id="key_field" defaultValue={apiKey} placeholder="Inserisci chiave..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-blue-500 outline-none" />
                                     </div>
                                     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
                                         <span className="text-[10px] font-black uppercase">IA Attiva</span>
                                         <label className="toggle-switch"><input type="checkbox" checked={aiEnabled} onChange={() => setAiEnabled(!aiEnabled)} /><span className="slider"></span></label>
+                                    </div>									
+                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Auto-Salvataggio</span>
+                                        <label className="toggle-switch">
+                                            <input type="checkbox" checked={autoSave} onChange={() => setAutoSave(!autoSave)} />
+                                            <span className="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Mostra Ricette</span>
+                                        <label className="toggle-switch">
+                                            <input type="checkbox" checked={showSocial} onChange={() => setShowSocial(!showSocial)} />
+                                            <span className="slider"></span>
+                                        </label>
                                     </div>
                                 </div>
-                                <button onClick={() => { const val = document.getElementById('key_field').value.trim(); setApiKey(val); localStorage.setItem('chef_api_key', val); setShowSettings(false); }} className="w-full bg-blue-600 text-white rounded-2xl py-4 text-xs font-black uppercase">Salva e Chiudi</button>
+                                <button onClick={() => {
+                                    const val = document.getElementById('key_field').value.trim();
+                                    setApiKey(val);
+                                    localStorage.setItem('chef_api_key', val);
+                                    setShowSettings(false);
+                                }} className="w-full bg-blue-600 text:white rounded-2xl py-4 text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-200">Salva e Chiudi</button>
+								
                             </div>
                         </div>
-                    )}
+                    )}					
 
                     {categoryWizardOpen && (
                         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[80] flex items-center justify-center p-6">
