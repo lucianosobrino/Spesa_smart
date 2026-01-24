@@ -315,19 +315,34 @@
                     throw new Error('JSON non valido restituito da IA');
                   }
                 
-                  let newList = [...items];
-                  if (result.add) {
-                    result.add.forEach(a => {
-                      newList.push({
-                        id: Date.now() + Math.random(),
-                        name: a.n,
-                        category: a.c || "Altro",
-                        bought: false
+                    let newList = [...items];
+                    if (result.add) {
+                      result.add.forEach(a => {
+                        newList.push({
+                          id: Date.now() + Math.random(),
+                          name: a.n,
+                          category: a.c || "Altro",
+                          bought: false
+                        });
                       });
-                    });
-                  }
-                  setItems(newList);
-                  setTextInput('');
+                    }
+                    setItems(newList);
+                    
+                    // GESTIONE RICETTA (se presente)
+                    if (result.recipe && result.recipe.title && result.recipe.query) {
+                      const newRecipe = {
+                        id: Date.now() + Math.random(),
+                        title: result.recipe.title,
+                        query: result.recipe.query,
+                        platform: result.recipe.platform || 'youtube',
+                        createdAt: new Date().toISOString()
+                      };
+                    
+                      setRecipes(prev => [newRecipe, ...prev]);
+                    }
+                    
+                    setTextInput('');
+
                 } catch (e) {
                   console.error('Errore processWithAI:', e);
                   setErrorModal({
