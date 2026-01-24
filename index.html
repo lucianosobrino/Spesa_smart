@@ -596,14 +596,20 @@
 
                                 {/* Lista articoli */}
                                 {!collapsedCats[cat] && (
-                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
+                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50"
+                                           onDrop={(e) => onDropCategory(e, cat)}
+                                            onDragOver={onDragOverCategory}>
                                         {list.map(item => (
                                             <div
                                                 key={item.id}
                                                 className="flex items-center p-3.5"
-                                                onClick={() =>
-                                                    setItems(items.map(i => i.id === item.id ? { ...i, bought: !i.bought } : i))
-                                                }
+                                                draggable
+                                                onDragStart={(e) => onDragStartItem(e, item.id)}
+                                                onClick={(e) => {
+                                                          // evita che il click dopo il drop dia fastidio
+                                                          if (e.defaultPrevented) return;
+                                                          setItems(items.map(i => i.id === item.id ? { ...i, bought: !i.bought } : i));
+                                                        }}
                                             >
                                                 <div
                                                     className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center mr-3 ${
