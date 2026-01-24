@@ -90,6 +90,25 @@
                 }
             }, [items, recipes, history, autoSave, aiEnabled]);
 
+			// 1) Salvataggi mancanti per le impostazioni (aggiunto 24/01/2026)
+			useEffect(() => {
+			    localStorage.setItem('chef_autosave', autoSave ? 'true' : 'false');
+			    localStorage.setItem('chef_show_social', showSocial ? 'true' : 'false');
+			}, [autoSave, showSocial]);
+			
+			// 2) Recupero salvataggi per le impostazioni al mount (se vuoi tenerli allineati) (aggiunto 24/01/2026)
+			useEffect(() => {
+			    const savedAuto = localStorage.getItem('chef_autosave');
+			    const savedShow = localStorage.getItem('chef_show_social');
+			    const savedAI   = localStorage.getItem('chef_ai_enabled');
+			
+			    if (savedAuto !== null) setAutoSave(savedAuto !== 'false');
+			    if (savedShow !== null) setShowSocial(savedShow !== 'false');
+			    if (savedAI   !== null) setAiEnabled(savedAI !== 'false');
+			}, []);
+
+			// Fine aggiunte 24/01/2026)
+
             const splitToItems = (raw) => {
                 if (!raw) return [];
                 let text = raw.toLowerCase().replace(/[.,;:!?()\[\]]+/g, ' ');
@@ -367,6 +386,17 @@
                                             <span className="slider"></span>
                                         </label>
                                     </div>
+									<div className="flex flex-col gap-3 mt-4">
+									    <button
+									        onClick={() => {
+									            window.location.href = 'help.html';
+									        }}
+									        className="w-full bg-slate-100 text-slate-700 rounded-2xl py-3 text-[11px] font-black uppercase tracking-widest"
+									    >
+									        Guida / Help
+									    </button>
+									</div>
+									
                                 </div>
                                 <button onClick={() => {
                                     const val = document.getElementById('key_field').value.trim();
