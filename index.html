@@ -600,8 +600,8 @@
                                 </h3>
                                 <div className="space-y-4 mb-10">
                                     {/* API KEY */}
-                                    <div>
                                     {aiEnabled && (
+                                    <div>
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
                                             Gemini API Key
                                         </label>
@@ -811,25 +811,6 @@
                             </div>
                         </div>
                     )}
-
-          
-                    {/* Toggles extra (solo se IA attiva) 
-                    {aiEnabled && (
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 mt-4">
-                            <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">
-                                Mostra Ricette
-                            </span>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={showSocial}
-                                    onChange={() => setShowSocial(!showSocial)}
-                                />
-                                <span className="slider"></span>
-                            </label>
-                        </div>
-                    )}
-                    */}
 
                     {/* Modale errore */}
                     {errorModal.show && (
