@@ -62,6 +62,8 @@
             const [isRecording, setIsRecording] = useState(false);
             const recognitionRef = useRef(null);
 
+			const [showConfirmClearBought, setShowConfirmClearBought] = useState(false);
+
             const CATEGORY_OPTIONS = ["Frutta e Verdura", "Macelleria", "Pescheria", "Latticini", "Surgelati", "Forno", "Dispensa", "Bevande", "Detersivi", "Igiene", "Altro"];
 
 			// Aggiunta del 24/01/2026
@@ -218,17 +220,45 @@
                 }
             };
 
-            const addPendingItemWithCategory = (cat) => {
-                const name = pendingCategoryItems[currentPendingIndex];
-                setItems(prev => [...prev, { id: Date.now() + Math.random(), name, category: cat || "Altro", bought: false }]);
-                if (currentPendingIndex + 1 >= pendingCategoryItems.length) {
-                    setCategoryWizardOpen(false);
-                    setPendingCategoryItems([]);
-                    setCurrentPendingIndex(0);
-                } else {
-                    setCurrentPendingIndex(idx => idx + 1);
-                }
-            };
+            // const addPendingItemWithCategory = (cat) => {
+            //    const name = pendingCategoryItems[currentPendingIndex];
+            //    setItems(prev => [...prev, { id: Date.now() + Math.random(), name, category: cat || "Altro", bought: false }]);
+            //    if (currentPendingIndex + 1 >= pendingCategoryItems.length) {
+            //        setCategoryWizardOpen(false);
+            //        setPendingCategoryItems([]);
+            //        setCurrentPendingIndex(0);
+            //    } else {
+            //        setCurrentPendingIndex(idx => idx + 1);
+            //    }
+            //};
+
+			const addPendingItemWithCategory = (cat) => {
+				  const name = pendingCategoryItems[currentPendingIndex];
+				  const chosenCat = cat || "Altro";
+				
+				  // Aggiungo l'item
+				  setItems(prev => [
+				    ...prev,
+				    { id: Date.now() + Math.random(), name, category: chosenCat, bought: false }
+				  ]);
+				
+				  // Aggiorno la mappa categorie
+				  setCategoryMap(prev => {
+				    const norm = name.toLowerCase();
+				    const updated = { ...prev, [norm]: chosenCat };
+				    localStorage.setItem('chef_category_map', JSON.stringify(updated));
+				    return updated;
+				  });
+				
+				  if (currentPendingIndex + 1 >= pendingCategoryItems.length) {
+				    setCategoryWizardOpen(false);
+				    setPendingCategoryItems([]);
+				    setCurrentPendingIndex(0);
+				  } else {
+				    setCurrentPendingIndex(idx => idx + 1);
+				  }
+				};
+
 
             const groupedItems = useMemo(() => {
                 const filtered = hideBought ? items.filter(i => !i.bought) : items;
