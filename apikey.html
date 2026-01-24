@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chef Spesa – Guida configurazione IA (Gemini)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 0;
+    }
+    .page {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+    h1, h2, h3 {
+      color: #f9fafb;
+      margin-top: 24px;
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 1.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    h2 {
+      font-size: 1.3rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+      padding-bottom: 4px;
+    }
+    p {
+      line-height: 1.6;
+      font-size: 0.95rem;
+      color: #e5e7eb;
+      margin-bottom: 12px;
+    }
+    ul, ol {
+      padding-left: 1.1rem;
+      margin-bottom: 12px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    code {
+      background: rgba(15, 23, 42, 0.9);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 16px;
+      padding: 16px 18px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.1);
+      color: #bfdbfe;
+      border: 1px solid rgba(59, 130, 246, 0.5);
+      margin-bottom: 8px;
+    }
+    a {
+      color: #93c5fd;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .warning {
+      border-color: rgba(248, 250, 252, 0.35);
+      background: rgba(15, 23, 42, 0.95);
+    }
+    .small {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      margin-bottom: 18px;
+      color: #9ca3af;
+      text-decoration: none;
+    }
+    .back:hover {
+      color: #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <a href="index.html" class="back">
+      ← Torna all'app Chef Spesa
+    </a>
+
+    <h1>Chef Spesa – Configurazione IA (Gemini)</h1>
+    <p>
+      Questa guida spiega come ottenere una chiave API di <strong>Gemini</strong> e come configurarla
+      nell'app <strong>Chef Spesa</strong> per usare i suggerimenti automatici dell'IA. [web:60][web:63]
+    </p>
+
+    <div class="card warning">
+      <div class="badge">Importante</div>
+      <p>
+        La chiave API è personale. Non condividerla con altre persone e non pubblicarla online
+        (GitHub, forum, screenshot, ecc.). Trattala come una password. [web:65][web:67]
+      </p>
+    </div>
+
+    <h2>1. Creare una API key di Gemini</h2>
+
+    <div class="card">
+      <div class="badge">Prerequisiti</div>
+      <ul>
+        <li>Un account Google attivo.</li>
+        <li>Accesso a <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Google AI Studio</a> (può essere necessario accettare i termini d’uso la prima volta). [web:60][web:63]</li>
+      </ul>
+    </div>
+
+    <ol>
+      <li>
+        Apri il sito
+        <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">
+          https://aistudio.google.com/
+        </a>
+        e accedi con il tuo account Google. [web:60][web:63]
+      </li>
+      <li>
+        Una volta dentro AI Studio, cerca nel menu la voce <strong>API Keys</strong> oppure
+        <strong>Get API key</strong>. [web:60][web:64]
+      </li>
+      <li>
+        Clicca su <strong>Create API key</strong> o su <strong>Cr
