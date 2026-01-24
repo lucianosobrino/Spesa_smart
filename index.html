@@ -105,6 +105,40 @@
                 }
             });
 
+            // Per la gestione del drag & drop
+            const onDragStartItem = (e, itemId) => {
+              e.dataTransfer.setData('text/plain', String(itemId));
+            };
+            
+            const onDropCategory = (e, targetCat) => {
+              const idStr = e.dataTransfer.getData('text/plain');
+              if (!idStr) return;
+              const id = Number(idStr);
+            
+              setItems(prev =>
+                prev.map(i =>
+                  i.id === id ? { ...i, category: targetCat } : i
+                )
+              );
+            
+              // aggiorna anche la mappa per il nome di questo item
+              setItems(prev => {
+                const found = prev.find(i => i.id === id);
+                if (!found) return prev;
+                const norm = (found.name || '').toLowerCase();
+                setCategoryMap(prevMap => ({
+                  ...prevMap,
+                  [norm]: targetCat
+                }));
+                return prev;
+              });
+            };
+            
+            const onDragOverCategory = (e) => {
+              e.preventDefault();
+            };
+
+
             // Inizializzazione riconoscimento vocale
             useEffect(() => {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -129,9 +163,10 @@
                     localStorage.setItem('chef_items', JSON.stringify(items));
                     localStorage.setItem('chef_recipes', JSON.stringify(recipes));
                     localStorage.setItem('chef_history', JSON.stringify(history));
+                    localStorage.setItem('chef_ai_enabled', aiEnabled ? 'true' : 'false');
+                    localStorage.setItem('chef_category_map', JSON.stringify(categoryMap));                   
                 }
-                localStorage.setItem('chef_ai_enabled', aiEnabled ? 'true' : 'false');
-            }, [items, recipes, history, autoSave, aiEnabled]);
+            }, [items, recipes, history, autoSave, aiEnabled, categoryMap]);
 
             // Salvataggio impostazioni indipendenti dalla lista
             useEffect(() => {
@@ -176,40 +211,78 @@
                 ]);
 
                 // Modalità senza IA: usa mappa categorie + wizard
+                //if (!aiEnabled) {
+                //    const names = splitToItems(query);
+                //    if (names.length > 0) {
+                //        const newItems = [];
+                //        const toAsk = [];
+
+                //        names.forEach(n => {
+                //            const norm = n.toLowerCase();
+                //            const savedCat = categoryMap[norm];
+                //            if (savedCat) {
+                //                newItems.push({
+                //                    id: Date.now() + Math.random(),
+                //                    name: n,
+                //                    category: savedCat,
+                //                    bought: false
+                //                });
+                //            } else {
+                //                toAsk.push(n);
+                //            }
+                //        });
+
+                //        if (newItems.length > 0) {
+                //            setItems(prev => [...prev, ...newItems]);
+                //        }
+
+                //        if (toAsk.length > 0) {
+                //            setPendingCategoryItems(toAsk);
+                //            setCurrentPendingIndex(0);
+                //            setCategoryWizardOpen(true);
+                //        }
+                //    }
+                //    setTextInput('');
+                //    return;
+                //}
+
                 if (!aiEnabled) {
-                    const names = splitToItems(query);
-                    if (names.length > 0) {
-                        const newItems = [];
-                        const toAsk = [];
-
-                        names.forEach(n => {
-                            const norm = n.toLowerCase();
-                            const savedCat = categoryMap[norm];
-                            if (savedCat) {
-                                newItems.push({
-                                    id: Date.now() + Math.random(),
-                                    name: n,
-                                    category: savedCat,
-                                    bought: false
-                                });
-                            } else {
-                                toAsk.push(n);
-                            }
+                  const names = splitToItems(query);
+                  if (names.length > 0) {
+                    const newItems = [];
+                    const toAsk = [];
+                
+                    names.forEach(n => {
+                      const norm = n.toLowerCase();
+                      const savedCat = categoryMap[norm];
+                      if (savedCat) {
+                        // categoria già nota: aggiungo subito
+                        newItems.push({
+                          id: Date.now() + Math.random(),
+                          name: n,
+                          category: savedCat,
+                          bought: false
                         });
-
-                        if (newItems.length > 0) {
-                            setItems(prev => [...prev, ...newItems]);
-                        }
-
-                        if (toAsk.length > 0) {
-                            setPendingCategoryItems(toAsk);
-                            setCurrentPendingIndex(0);
-                            setCategoryWizardOpen(true);
-                        }
+                      } else {
+                        // categoria sconosciuta: chiedo all’utente
+                        toAsk.push(n);
+                      }
+                    });
+                
+                    if (newItems.length > 0) {
+                      setItems(prev => [...prev, ...newItems]);
                     }
-                    setTextInput('');
-                    return;
+                
+                    if (toAsk.length > 0) {
+                      setPendingCategoryItems(toAsk);
+                      setCurrentPendingIndex(0);
+                      setCategoryWizardOpen(true);
+                    }
+                  }
+                  setTextInput('');
+                  return;
                 }
+
 
                 // Modalità con IA
                 if (!apiKey) {
@@ -294,31 +367,58 @@
                 }
             };
 
-            const addPendingItemWithCategory = (cat) => {
-                const name = pendingCategoryItems[currentPendingIndex];
-                const chosenCat = cat || "Altro";
+            // const addPendingItemWithCategory = (cat) => {
+            //    const name = pendingCategoryItems[currentPendingIndex];
+            //    const chosenCat = cat || "Altro";
 
-                setItems(prev => [
-                    ...prev,
-                    { id: Date.now() + Math.random(), name, category: chosenCat, bought: false }
-                ]);
+            //    setItems(prev => [
+            //        ...prev,
+            //        { id: Date.now() + Math.random(), name, category: chosenCat, bought: false }
+            //    ]);
 
-                // Aggiorno la mappa categorie e la salvo
-                setCategoryMap(prev => {
-                    const norm = name.toLowerCase();
-                    const updated = { ...prev, [norm]: chosenCat };
-                    localStorage.setItem('chef_category_map', JSON.stringify(updated));
-                    return updated;
-                });
+            //    // Aggiorno la mappa categorie e la salvo
+            //    setCategoryMap(prev => {
+            //        const norm = name.toLowerCase();
+            //        const updated = { ...prev, [norm]: chosenCat };
+            //        localStorage.setItem('chef_category_map', JSON.stringify(updated));
+            //        return updated;
+            //    });
 
-                if (currentPendingIndex + 1 >= pendingCategoryItems.length) {
-                    setCategoryWizardOpen(false);
-                    setPendingCategoryItems([]);
-                    setCurrentPendingIndex(0);
-                } else {
-                    setCurrentPendingIndex(idx => idx + 1);
-                }
-            };
+            //    if (currentPendingIndex + 1 >= pendingCategoryItems.length) {
+            //        setCategoryWizardOpen(false);
+            //        setPendingCategoryItems([]);
+            //        setCurrentPendingIndex(0);
+            //    } else {
+            //        setCurrentPendingIndex(idx => idx + 1);
+            //    }
+            //};
+
+             const addPendingItemWithCategory = (cat) => {
+                      const name = pendingCategoryItems[currentPendingIndex];
+                      const chosenCat = cat || "Altro";
+                      const norm = name.toLowerCase();
+                    
+                      // aggiorna lista
+                      setItems(prev => [
+                        ...prev,
+                        { id: Date.now() + Math.random(), name, category: chosenCat, bought: false }
+                      ]);
+                    
+                      // aggiorna mappa attribuzioni
+                      setCategoryMap(prev => ({
+                        ...prev,
+                        [norm]: chosenCat
+                      }));
+                    
+                      if (currentPendingIndex + 1 >= pendingCategoryItems.length) {
+                        setCategoryWizardOpen(false);
+                        setPendingCategoryItems([]);
+                        setCurrentPendingIndex(0);
+                      } else {
+                        setCurrentPendingIndex(idx => idx + 1);
+                      }
+                    };
+
 
             const groupedItems = useMemo(() => {
                 const filtered = hideBought ? items.filter(i => !i.bought) : items;
