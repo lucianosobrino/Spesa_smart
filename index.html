@@ -626,7 +626,7 @@
                                     </div>
 
                                     {/* API KEY */}
-                                    {aiEnabled && (
+
                                     <div>
                                        {/* <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
                                             Gemini API Key
@@ -639,10 +639,10 @@
                                             className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-blue-500 outline-none"
                                         />
                                     </div>
-                                    )}
+
                                     
                                     {/* Mostra Ricette (solo se IA attiva) */}
-                                    {aiEnabled && (
+
                                       <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                         <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">
                                           Mostra Ricette
@@ -652,11 +652,12 @@
                                             type="checkbox"
                                             checked={showSocial}
                                             onChange={() => setShowSocial(!showSocial)}
+                                            disabled={!aiEnabled}
                                           />
                                           <span className="slider"></span>
                                         </label>
                                       </div>
-                                    )}
+
 
                                     {/* Auto-Salvataggio */}
                                     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
