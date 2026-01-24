@@ -64,9 +64,17 @@
 
             const CATEGORY_OPTIONS = ["Frutta e Verdura", "Macelleria", "Pescheria", "Latticini", "Surgelati", "Forno", "Dispensa", "Bevande", "Detersivi", "Igiene", "Altro"];
 
+			// Aggiunta del 24/01/2026
+			const [categoryMap, setCategoryMap] = useState(() => {
+			  try {
+			    return JSON.parse(localStorage.getItem('chef_category_map') || '{}');
+			  } catch {
+			    return {};
+			  }
+			});
+
+			
 			//Stato per la cronologia e per la conferma pulizia “presi” (aggiunto 24/01/2026)
-			const [showHistory, setShowHistory] = useState(false);
-			const [showConfirmClearBought, setShowConfirmClearBought] = useState(false);
 			const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('chef_history') || '[]'));
 			
             useEffect(() => {
@@ -122,11 +130,11 @@
                 return text.split(/\s+/).map(s => s.trim()).filter(s => s.length > 0);
             };
 
+             const processWithAI = async (input) => {
+                 const query = input.trim();
+                 if (!query || isLoading) return;
+				 
 			// Questa versione è precedente il 24/06/2026
-            //  const processWithAI = async (input) => {
-            //     const query = input.trim();
-            //     if (!query || isLoading) return;
-			// 
             //     if (!aiEnabled) {
             //         const names = splitToItems(query);
             //         if (names.length > 0) {
