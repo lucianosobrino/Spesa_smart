@@ -75,7 +75,7 @@
                 return saved === null ? true : saved !== 'false';
             });
 
-            const [showSettings, setShowSettings] = useState(!apiKey);
+            const [showSettings, setShowSettings] =  useState(false);
             const [showHistory, setShowHistory] = useState(false);
             const [showConfirmReset, setShowConfirmReset] = useState(false);
             const [showConfirmClearBought, setShowConfirmClearBought] = useState(false);
@@ -632,15 +632,22 @@
                                                 </span>
 
                                                 {/* NUOVO: pulsante per “dimenticare” il reparto memorizzato */}
-                                                <button
+                                               <button
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     const norm = item.name.toLowerCase();
+                                                
+                                                    // 1. rimuovo la categoria memorizzata
                                                     setCategoryMap(prev => {
                                                       const copy = { ...prev };
                                                       delete copy[norm];
                                                       return copy;
                                                     });
+                                                
+                                                    // 2. apro il wizard categorie SOLO per questo prodotto
+                                                    setPendingCategoryItems([item.name]);
+                                                    setCurrentPendingIndex(0);
+                                                    setCategoryWizardOpen(true);
                                                   }}
                                                   className="text-slate-200 hover:text-slate-500 p-1 mr-1"
                                                   title="Dimentica reparto"
@@ -650,6 +657,7 @@
                                                     <line x1="9" y1="13" x2="15" y2="13"/>
                                                   </svg>
                                                 </button>
+
                                                 
                                                 <button
                                                     onClick={(e) => {
