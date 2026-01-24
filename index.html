@@ -599,21 +599,6 @@
                                     Configurazione
                                 </h3>
                                 <div className="space-y-4 mb-10">
-                                    {/* API KEY */}
-                                    {aiEnabled && (
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
-                                            Gemini API Key
-                                        </label>
-                                        <input
-                                            type="password"
-                                            id="key_field"
-                                            defaultValue={apiKey}
-                                            placeholder="Inserisci chiave..."
-                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-blue-500 outline-none"
-                                        />
-                                    </div>
-                                    )}
                                     
                                     {/* IA Attiva */}
                                     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
@@ -628,19 +613,18 @@
                                         </label>
                                     </div>
 
-                                    {/* Auto-Salvataggio */}
-                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">
-                                            Auto-Salvataggio
-                                        </span>
-                                        <label className="toggle-switch">
-                                            <input
-                                                type="checkbox"
-                                                checked={autoSave}
-                                                onChange={() => setAutoSave(!autoSave)}
-                                            />
-                                            <span className="slider"></span>
+                                    {/* API KEY */}
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
+                                            Gemini API Key
                                         </label>
+                                        <input
+                                            type="password"
+                                            id="key_field"
+                                            defaultValue={apiKey}
+                                            placeholder="Inserisci chiave..."
+                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-blue-500 outline-none"
+                                        />
                                     </div>
 
                                     {/* Mostra Ricette (solo se IA attiva) */}
@@ -659,6 +643,23 @@
                                         </label>
                                       </div>
                                     )}
+
+                                    {/* Auto-Salvataggio */}
+                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">
+                                            Auto-Salvataggio
+                                        </span>
+                                        <label className="toggle-switch">
+                                            <input
+                                                type="checkbox"
+                                                checked={autoSave}
+                                                onChange={() => setAutoSave(!autoSave)}
+                                            />
+                                            <span className="slider"></span>
+                                        </label>
+                                    </div>
+
+
 
 
                                     {/* Help */}
