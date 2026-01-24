@@ -279,7 +279,14 @@
                     }
                   );
                 
-                  //const data = await response.json();
+                  const data = await response.json();
+
+                    if (response.status === 429) {
+                        throw new Error("Troppe richieste! Aspetta un minuto prima di riprovare.");
+                    }
+                    if (data.error) {
+                        throw new Error(data.error.message || "Errore API");
+                    }
                     console.log('Gemini RAW response:', data);
                 
                   // se arriva un errore dalla API (es. API key non valida)
