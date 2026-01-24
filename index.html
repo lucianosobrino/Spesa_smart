@@ -648,12 +648,12 @@
                                           Mostra Ricette
                                         </span>
                                         <label className="toggle-switch">
-                                          <input
-                                            type="checkbox"
-                                            checked={showSocial}
-                                            onChange={() => setShowSocial(!showSocial)}
-                                            disabled={!aiEnabled}
-                                          />
+                                            <input
+                                              type="checkbox"
+                                              checked={aiEnabled && showSocial}   // se IA off → sempre false
+                                              onChange={() => setShowSocial(!showSocial)}
+                                              disabled={!aiEnabled}
+                                            />
                                           <span className="slider"></span>
                                         </label>
                                       </div>
