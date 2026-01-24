@@ -92,7 +92,7 @@
             const recognitionRef = useRef(null);
 
             const CATEGORY_OPTIONS = [
-                "Frutta e Verdura", "Macelleria", "Pescheria", "Latticini",
+                "Frutta e Verdura", "Gastronomia", "Macelleria", "Pescheria", "Latticini",
                 "Surgelati", "Forno", "Dispensa", "Bevande",
                 "Detersivi", "Igiene", "Altro"
             ];
@@ -141,14 +141,26 @@
 
             const splitToItems = (raw) => {
                 if (!raw) return [];
-                let text = raw.toLowerCase().replace(/[.,;:!?()\[\]]+/g, ' ');
-                const noise = [
-                    /\baggiungi\b/gi, /\bancora\b/gi, /\be\b/gi,
-                    /\bdi\b/gi, /\bun\b/gi, /\buna\b/gi
-                ];
-                noise.forEach(re => text = text.replace(re, ' '));
+            
+                // minuscolo e punteggiatura → virgole
+                let text = raw.toLowerCase().replace(/[.,;:!?()\[\]]+/g, ',');
+            
+                // parole di rumore (senza "e")
+                //const noise = [
+               //     /\baggiungi\b/gi,
+               //     /\bancora\b/gi,
+               //     /\bdi\b/gi,
+              //      /\bun\b/gi,
+              //      /\buna\b/gi
+              //  ];
+               // noise.forEach(re => text = text.replace(re, ','));
+            
+                // normalizza: sostituisci " e " con " , "
+                text = text.replace(/\se\s/gi, ' , ');
+            
+                // split su virgole e spazi multipli
                 return text
-                    .split(/\s+/)
+                    .split(/[,]+/)
                     .map(s => s.trim())
                     .filter(s => s.length > 0);
             };
