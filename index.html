@@ -54,6 +54,10 @@
                     return [];
                 }
             });
+
+            const [aiRecipeText, setAiRecipeText] = useState("");
+            const [showAiRecipeModal, setShowAiRecipeModal] = useState(false);
+            
             const [history, setHistory] = useState(() => {
                 try {
                     return JSON.parse(localStorage.getItem('chef_history') || '[]');
@@ -271,6 +275,7 @@
                             text: `Restituisci SOLO JSON: {
                               "add": [{"n": "nome", "q": "quantità (es. 500g, 2pz)", "c": "CATEGORIA"}],
                               "recipe": {"title": "Titolo Ricetta", "query": "cosa cercare", "platform": "youtube"}
+                              "full_recipe": "Testo completo della ricetta con dosi e passaggi"
                             }. CATEGORIE: Frutta e Verdura, Macelleria, Pescheria, Latticini, Surgelati, Forno, Dispensa, Bevande, Detersivi, Igiene, Altro.`                        
                           }]
                         },
@@ -313,6 +318,9 @@
                   let result;
                   try {
                     result = JSON.parse(data.candidates[0].content.parts[0].text);
+                      if (result.full_recipe) {
+                            setAiRecipeText(result.full_recipe);
+                        }
                   } catch (parseErr) {
                     console.error('Errore parsing JSON da Gemini:', data.candidates[0].content.parts[0].text);
                     throw new Error('JSON non valido restituito da IA');
@@ -679,9 +687,34 @@
                     {showSocial && recipes.length > 0 && (
                         <div className="mt-8 mb-6 px-2">
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">
-                                Ricette Suggerite
+                                Ricette e Proposte
                             </h3>
                             <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+
+{/* CARD SPECIALE: PROPOSTA IA */}
+            {aiRecipeText && (
+                <div className="relative min-w-[180px]">
+                    <button
+                        onClick={() => setAiRecipeText("")}
+                        className="absolute -top-2 -right-2 z-10 bg-white text-slate-400 shadow-md rounded-full w-6 h-6 flex items-center justify-center border border-slate-100"
+                    >
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                    <button 
+                        onClick={() => setShowAiRecipeModal(true)}
+                        className="w-full h-full text-left bg-blue-600 p-3 rounded-2xl shadow-lg active:scale-95 transition-all"
+                    >
+                        <div className="aspect-video bg-blue-500 rounded-xl mb-2 flex items-center justify-center">
+                            <span className="text-2xl">👨‍🍳</span>
+                        </div>
+                        <p className="text-[11px] font-black text-white leading-tight uppercase">
+                            Proposta dello Chef IA
+                        </p>
+                        <p className="text-[9px] text-blue-200 font-bold mt-1 uppercase">Leggi ricetta →</p>
+                    </button>
+                </div>
+            )}
+                                
                                 {recipes.map(recipe => (
                                     <div key={recipe.id} className="relative min-w-[180px]">
                                         {/* Pulsante elimina singola ricetta */}
@@ -1010,6 +1043,26 @@
                                         Svuota cronologia
                                     </button>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modelaproposta ricetta */}
+                    {showAiRecipeModal && (
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex items-center justify-center p-6">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[80vh]">
+                                <h3 className="text-lg font-black uppercase mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">👨‍🍳</span> Proposta dello Chef
+                                </h3>
+                                <div className="flex-1 overflow-y-auto text-sm text-slate-600 leading-relaxed font-medium whitespace-pre-wrap pr-2">
+                                    {aiRecipeText}
+                                </div>
+                                <button
+                                    onClick={() => setShowAiRecipeModal(false)}
+                                    className="mt-6 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest"
+                                >
+                                    Chiudi
+                                </button>
                             </div>
                         </div>
                     )}
