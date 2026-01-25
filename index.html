@@ -437,6 +437,10 @@
                 setCollapsedCats(newObj);
             };
 
+            const removeRecipe = (id) => {
+                setRecipes(prev => prev.filter(r => r.id !== id));
+            };
+
             const clearBoughtItems = () => {
                 setItems(prev => prev.filter(i => !i.bought));
             };
@@ -671,26 +675,47 @@
                         ))}
                     </div>
 
-                    {/* Aggiunta del 25/01/26 */}
+                    {/* Sezione Ricette con eliminazione singola */}
                     {showSocial && recipes.length > 0 && (
-                            <div className="mt-8 mb-4">
-                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ricette Suggerite</h3>
-                                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                                    {recipes.map(recipe => (
-                                        <a key={recipe.id} 
-                                           href={`https://www.youtube.com/results?search_query=${recipe.query}`} 
-                                           target="_blank"
-                                           className="min-w-[200px] bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
-                                            <div className="aspect-video bg-slate-100 rounded-xl mb-2 flex items-center justify-center">
-                                                <svg viewBox="0 0 24 24" width="24" height="24" fill="#ff0000"><path d="M23.5 12.4c-.2-2.8-.5-5.6-.5-5.6s-.3-2.3-1.3-3.3c-1.3-1.3-2.7-1.3-3.4-1.4C13.4 2 12 2 12 2s-1.4 0-6.3.1c-.7.1-2.1.1-3.4 1.4-1 1-1.3 3.3-1.3 3.3s-.3 2.8-.5 5.6v2.3c.2 2.8.5 5.6.5 5.6s.3 2.3 1.3 3.3c1.3 1.3 2.7 1.3 3.4 1.4 4.9.1 6.3.1 6.3.1s1.4 0 6.3-.1c.7-.1 2.1-.1 3.4-1.4 1-1 1.3-3.3 1.3-3.3s.3-2.8.5-5.6v-2.3zM9.5 15.5V8.5l6.5 3.5-6.5 3.5z"/></svg>
+                        <div className="mt-8 mb-6 px-2">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">
+                                Ricette Suggerite
+                            </h3>
+                            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                                {recipes.map(recipe => (
+                                    <div key={recipe.id} className="relative min-w-[180px]">
+                                        {/* Pulsante elimina singola ricetta */}
+                                        <button
+                                            onClick={() => removeRecipe(recipe.id)}
+                                            className="absolute -top-2 -right-2 z-10 bg-white text-slate-400 hover:text-red-500 shadow-md rounded-full w-6 h-6 flex items-center justify-center border border-slate-100 transition-colors"
+                                        >
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3">
+                                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                                <line x1="6" y1="6" x2="18" y2="18"/>
+                                            </svg>
+                                        </button>
+                    
+                                        <a 
+                                            href={`https://www.youtube.com/results?search_query=${recipe.query}`} 
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block bg-white p-3 rounded-2xl shadow-sm border border-slate-100 active:scale-95 transition-all"
+                                        >
+                                            <div className="aspect-video bg-red-50 rounded-xl mb-2 flex items-center justify-center">
+                                                <svg viewBox="0 0 24 24" width="28" height="28" fill="#ff0000">
+                                                    <path d="M23.5 12.4c-.2-2.8-.5-5.6-.5-5.6s-.3-2.3-1.3-3.3c-1.3-1.3-2.7-1.3-3.4-1.4C13.4 2 12 2 12 2s-1.4 0-6.3.1c-.7.1-2.1.1-3.4 1.4-1 1-1.3 3.3-1.3 3.3s-.3 2.8-.5 5.6v2.3c.2 2.8.5 5.6.5 5.6s.3 2.3 1.3 3.3c1.3 1.3 2.7 1.3 3.4 1.4 4.9.1 6.3.1 6.3.1s1.4 0 6.3-.1c.7-.1 2.1-.1 3.4-1.4 1-1 1.3-3.3 1.3-3.3s.3-2.8.5-5.6v-2.3zM9.5 15.5V8.5l6.5 3.5-6.5 3.5z"/>
+                                                </svg>
                                             </div>
-                                            <p className="text-xs font-bold text-slate-800 leading-tight">{recipe.title}</p>
+                                            <p className="text-[11px] font-black text-slate-800 leading-tight uppercase line-clamp-2">
+                                                {recipe.title}
+                                            </p>
+                                            <p className="text-[9px] text-blue-500 font-bold mt-1 uppercase">Guarda Video →</p>
                                         </a>
-                                    ))}
-                                </div>
+                                    </div>
+                                ))}
                             </div>
-                        )}
-
+                        </div>
+                    )}
                     {/* Barra input in basso */}
                     <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-slate-100 via-slate-100/90 to-transparent">
                         <div className="max-w-md mx-auto relative">
@@ -895,6 +920,8 @@
                                     <button
                                         onClick={() => {
                                             setItems([]);
+                                            setShowConfirmReset(false);
+                                            setRecipes([]); 
                                             setShowConfirmReset(false);
                                         }}
                                         className="bg-red-500 text-white rounded-2xl py-4 font-black uppercase text-xs"
