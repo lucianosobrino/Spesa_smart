@@ -278,16 +278,35 @@ const processWithAI = async (input) => {
 
         const result = JSON.parse(data.candidates[0].content.parts[0].text);
 
-        // SALVATAGGIO PRODOTTI
-        if (result.add) {
-            const newItems = result.add.map(a => ({
-                id: Date.now() + Math.random(),
-                name: a.n,
-                q: a.q || "", // Assicurati di salvare la quantità 'q'
-                category: a.c || "Altro",
-                bought: false
-            }));
-            setItems(prev => [...prev, ...newItems]);
+        // SALVATAGGIO PRODOTTI - Versione Anti-Duplicato con Quantità
+        if (result.add && result.add.length > 0) {
+            setItems(prev => {
+                const itemsToAdd = [];
+        
+                result.add.forEach(newItem => {
+                    // 1. Pulizia e normalizzazione per il confronto
+                    const nameToLink = newItem.n.toLowerCase().trim();
+                    
+                    // 2. Controllo se esiste già un prodotto con lo stesso nome
+                    const alreadyExists = prev.some(existingItem => 
+                        existingItem.name.toLowerCase().trim() === nameToLink
+                    );
+        
+                    // 3. Se NON esiste, lo prepariamo per l'aggiunta
+                    if (!alreadyExists) {
+                        itemsToAdd.push({
+                            id: Date.now() + Math.random(),
+                            name: newItem.n,
+                            q: newItem.q || "", // Gestisce la quantità fornita dall'IA
+                            category: newItem.c || "Altro",
+                            bought: false
+                        });
+                    }
+                });
+        
+                // Restituisce la vecchia lista + solo i nuovi prodotti non duplicati
+                return [...prev, ...itemsToAdd];
+            });
         }
 
         // SALVATAGGIO RICETTE
