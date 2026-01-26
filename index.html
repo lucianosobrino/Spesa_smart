@@ -99,11 +99,23 @@
             const [isRecording, setIsRecording] = useState(false);
             const recognitionRef = useRef(null);
 
-            const CATEGORY_OPTIONS = [
-                "Frutta/Verdura", "Frigorifero"," Macelleria","Gastronomia", 
-                "Pescheria", "Forno/Panificati", "Dispensa", 
-                "Bevande", "Casa/Igiene", "Surgelati" , "Altro" 
+            const [categoryOptions, setCategoryOptions] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('chef_categories');
+                    return saved ? JSON.parse(saved) : [
+                            "Frutta/Verdura", "Frigorifero"," Macelleria","Gastronomia", 
+                            "Pescheria", "Forno/Panificati", "Dispensa", 
+                            "Bevande", "Casa/Igiene", "Surgelati" , "Altro" 
             ];
+                } catch {
+                    return ["Frutta e Verdura", "Gastronomia", "Macelleria", "Pescheria", "Latticini", "Surgelati", "Forno", "Dispensa", "Bevande", "Detersivi", "Igiene", "Altro"];
+                }
+            });
+            
+                // Effetto per il salvataggio automatico delle categorie
+                useEffect(() => {
+                    localStorage.setItem('chef_categories', JSON.stringify(categoryOptions));
+                }, [categoryOptions]);
 
             const [categoryMap, setCategoryMap] = useState(() => {
                 try {
@@ -208,6 +220,34 @@
                     .map(s => s.trim())
                     .filter(s => s.length > 0);
             };
+
+const addCategory = (name) => {
+    if (name && !categoryOptions.includes(name)) {
+        setCategoryOptions([...categoryOptions, name]);
+    }
+};
+
+const renameCategory = (oldName, newName) => {
+    if (oldName === "Altro" || !newName) return;
+    
+    setCategoryOptions(prev => prev.map(c => c === oldName ? newName : c));
+    
+    // Aggiorna i prodotti esistenti
+    setItems(prev => prev.map(item => 
+        item.category === oldName ? { ...item, category: newName } : item
+    ));
+};
+
+const deleteCategory = (name) => {
+    if (name === "Altro") return; // Protezione categoria "Altro"
+    
+    setCategoryOptions(prev => prev.filter(c => c !== name));
+    
+    // Sposta i prodotti della categoria cancellata in "Altro"
+    setItems(prev => prev.map(item => 
+        item.category === name ? { ...item, category: "Altro" } : item
+    ));
+};            
 
 const processWithAI = async (input) => {
     const query = input.trim();
@@ -503,6 +543,57 @@ const processWithAI = async (input) => {
                             </button>
 
                             <div className="w-[1px] h-4 bg-slate-200 mx-1"></div>
+
+{/* SEZIONE GESTIONE CATEGORIE */}
+<div className="mt-8 pt-6 border-t border-slate-100">
+    <div className="flex items-center justify-between mb-4">
+        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+            I tuoi Reparti
+        </h4>
+        <button 
+            onClick={() => {
+                const name = prompt("Nome nuovo reparto:");
+                if(name) addCategory(name);
+            }}
+            className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg active:scale-95 transition-all"
+        >
+            + Aggiungi
+        </button>
+    </div>
+
+    <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-hide">
+        {categoryOptions.map(cat => (
+            <div key={cat} className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
+                <input 
+                    type="text"
+                    defaultValue={cat}
+                    disabled={cat === "Altro"}
+                    onBlur={(e) => {
+                        if (e.target.value !== cat) renameCategory(cat, e.target.value);
+                    }}
+                    className={`flex-1 bg-transparent text-[11px] font-bold outline-none ${cat === "Altro" ? 'text-slate-400' : 'text-slate-700'}`}
+                />
+                {cat !== "Altro" && (
+                    <button 
+                        onClick={() => {
+                            if(confirm(`Eliminare il reparto "${cat}"? I prodotti verranno spostati in "Altro".`)) {
+                                deleteCategory(cat);
+                            }
+                        }} 
+                        className="w-7 h-7 flex items-center justify-center text-red-400 bg-white rounded-xl shadow-sm border border-red-50"
+                    >
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                )}
+            </div>
+        ))}
+    </div>
+    <p className="text-[9px] text-slate-400 mt-3 italic px-1">
+        * Tocca il nome per rinominare. Il reparto "Altro" non può essere rimosso.
+    </p>
+</div>                            
 
                             {/* Cronologia */}
                             <button
