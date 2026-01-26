@@ -55,8 +55,12 @@
                 }
             });
 
-            const [aiRecipeText, setAiRecipeText] = useState("");
-            const [showAiRecipeModal, setShowAiRecipeModal] = useState(false);
+            //const [aiRecipeText, setAiRecipeText] = useState("");
+            //const [showAiRecipeModal, setShowAiRecipeModal] = useState(false);
+
+            // Sostituisci i vecchi stati con questi
+            const [aiRecipes, setAiRecipes] = useState([]); // Array per gestire più testi
+            const [selectedAiRecipe, setSelectedAiRecipe] = useState(null); // Per il modale
             
             const [history, setHistory] = useState(() => {
                 try {
@@ -270,15 +274,35 @@
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         contents: [{ parts: [{ text: `Input: "${query}"` }] }],
-                        systemInstruction: {
-                          parts: [{
-                            text: `Restituisci SOLO JSON: {
-                              "add": [{"n": "nome", "q": "quantità (es. 500g, 2pz)", "c": "CATEGORIA"}],
-                              "recipe": {"title": "Titolo Ricetta", "query": "cosa cercare", "platform": "youtube"}
-                              "full_recipe": "Testo completo della ricetta con dosi e passaggi"
-                            }. CATEGORIE: Frutta e Verdura, Macelleria, Pescheria, Latticini, Surgelati, Forno, Dispensa, Bevande, Detersivi, Igiene, Altro.`                        
-                          }]
-                        },
+                        //systemInstruction: {
+                        //  parts: [{
+                         //   text: `Restituisci SOLO JSON: {
+                         //     "add": [{"n": "nome", "q": "quantità (es. 500g, 2pz)", "c": "CATEGORIA"}],
+                         //     "recipe": {"title": "Titolo Ricetta", "query": "cosa cercare", "platform": "youtube"}
+                         //     "full_recipe": "Testo completo della ricetta con dosi e passaggi"
+                         //   }. CATEGORIE: Frutta e Verdura, Macelleria, Pescheria, Latticini, Surgelati, Forno, Dispensa, Bevande, Detersivi, Igiene, Altro.`                        
+                         // }]
+                        //},
+                        const systemInstruction = {
+                            role: "system",
+                            parts: [{
+                                text: `Sei un esperto Chef e assistente per la spesa. 
+                                Analizza l'input e restituisci ESCLUSIVAMENTE un oggetto JSON con questa struttura:
+                                {
+                                  "add": [{"n": "nome prodotto", "q": "quantità (es. 500g, 2pz)", "c": "CATEGORIA"}],
+                                  "recipes": [
+                                    {
+                                      "title": "Titolo Ricetta",
+                                      "query": "termine di ricerca per youtube",
+                                      "full_text": "Spiegazione dettagliata della ricetta con ingredienti e passaggi",
+                                      "platform": "youtube"
+                                    }
+                                  ]
+                                }
+                                CATEGORIE: Frutta e Verdura, Macelleria, Pescheria, Latticini, Surgelati, Forno, Dispensa, Bevande, Detersivi, Igiene, Altro.
+                                Se l'utente chiede piatti o ingredienti per ricette, popola l'array 'recipes'.`
+                            }]
+                        };  
                         generationConfig: {
                           responseMimeType: "application/json",
                           temperature: 0.1
@@ -340,16 +364,26 @@
                     setItems(newList);
                     
                     // GESTIONE RICETTA (se presente)
-                    if (result.recipe && result.recipe.title && result.recipe.query) {
-                      const newRecipe = {
-                        id: Date.now() + Math.random(),
-                        title: result.recipe.title,
-                        query: result.recipe.query,
-                        platform: result.recipe.platform || 'youtube',
-                        createdAt: new Date().toISOString()
-                      };
+                //    if (result.recipe && result.recipe.title && result.recipe.query) {
+                //      const newRecipe = {
+                //        id: Date.now() + Math.random(),
+                //        title: result.recipe.title,
+                //        query: result.recipe.query,
+                //        platform: result.recipe.platform || 'youtube',
+                 //       createdAt: new Date().toISOString()
+                //      };
                     
-                      setRecipes(prev => [newRecipe, ...prev]);
+                //      setRecipes(prev => [newRecipe, ...prev]);
+                //    }
+
+                if (result.recipes && result.recipes.length > 0) {
+                        const recipesWithId = result.recipes.map(r => ({
+                            ...r,
+                            id: Date.now() + Math.random() // Genera un ID per ogni ricetta
+                        }));
+                        
+                        // Uniamo le nuove ricette a quelle esistenti (le nuove appaiono per prime)
+                        setAiRecipes(prev => [...recipesWithId, ...prev]);
                     }
                     
                     setTextInput('');
@@ -683,67 +717,55 @@
                         ))}
                     </div>
 
-                    {/* Sezione Ricette con eliminazione singola */}
-                    {showSocial && recipes.length > 0 && (
-                        <div className="mt-8 mb-6 px-2">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">
-                                Ricette e Proposte
+                    {/* Linea di divisione */}
+                    {(aiRecipes.length > 0) && <div className="mx-4 my-6 border-t border-slate-200/60" />}
+                    
+                    {/* Sezione Ricette e Proposte */}
+                    {showSocial && aiRecipes.length > 0 && (
+                        <div className="mt-4 mb-6 px-2">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1 flex justify-between">
+                                <span>Ispirazione Chef</span>
+                                <span>{aiRecipes.length} suggerimenti</span>
                             </h3>
-                            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-
-{/* CARD SPECIALE: PROPOSTA IA */}
-            {aiRecipeText && (
-                <div className="relative min-w-[180px]">
-                    <button
-                        onClick={() => setAiRecipeText("")}
-                        className="absolute -top-2 -right-2 z-10 bg-white text-slate-400 shadow-md rounded-full w-6 h-6 flex items-center justify-center border border-slate-100"
-                    >
-                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                    <button 
-                        onClick={() => setShowAiRecipeModal(true)}
-                        className="w-full h-full text-left bg-blue-600 p-3 rounded-2xl shadow-lg active:scale-95 transition-all"
-                    >
-                        <div className="aspect-video bg-blue-500 rounded-xl mb-2 flex items-center justify-center">
-                            <span className="text-2xl">👨‍🍳</span>
-                        </div>
-                        <p className="text-[11px] font-black text-white leading-tight uppercase">
-                            Proposta dello Chef IA
-                        </p>
-                        <p className="text-[9px] text-blue-200 font-bold mt-1 uppercase">Leggi ricetta →</p>
-                    </button>
-                </div>
-            )}
-                                
-                                {recipes.map(recipe => (
-                                    <div key={recipe.id} className="relative min-w-[180px]">
-                                        {/* Pulsante elimina singola ricetta */}
+                            
+                            <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+                                {aiRecipes.map((recipe, index) => (
+                                    <div key={index} className="relative min-w-[140px] max-w-[140px]">
+                                        {/* Tasto elimina piccolo */}
                                         <button
-                                            onClick={() => removeRecipe(recipe.id)}
-                                            className="absolute -top-2 -right-2 z-10 bg-white text-slate-400 hover:text-red-500 shadow-md rounded-full w-6 h-6 flex items-center justify-center border border-slate-100 transition-colors"
+                                            onClick={() => setAiRecipes(prev => prev.filter((_, i) => i !== index))}
+                                            className="absolute -top-1 -right-1 z-10 bg-white text-slate-400 shadow-sm rounded-full w-5 h-5 flex items-center justify-center border border-slate-100"
                                         >
-                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3">
-                                                <line x1="18" y1="6" x2="6" y2="18"/>
-                                                <line x1="6" y1="6" x2="18" y2="18"/>
-                                            </svg>
+                                            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                         </button>
                     
-                                        <a 
-                                            href={`https://www.youtube.com/results?search_query=${recipe.query}`} 
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block bg-white p-3 rounded-2xl shadow-sm border border-slate-100 active:scale-95 transition-all"
-                                        >
-                                            <div className="aspect-video bg-red-50 rounded-xl mb-2 flex items-center justify-center">
-                                                <svg viewBox="0 0 24 24" width="28" height="28" fill="#ff0000">
-                                                    <path d="M23.5 12.4c-.2-2.8-.5-5.6-.5-5.6s-.3-2.3-1.3-3.3c-1.3-1.3-2.7-1.3-3.4-1.4C13.4 2 12 2 12 2s-1.4 0-6.3.1c-.7.1-2.1.1-3.4 1.4-1 1-1.3 3.3-1.3 3.3s-.3 2.8-.5 5.6v2.3c.2 2.8.5 5.6.5 5.6s.3 2.3 1.3 3.3c1.3 1.3 2.7 1.3 3.4 1.4 4.9.1 6.3.1 6.3.1s1.4 0 6.3-.1c.7-.1 2.1-.1 3.4-1.4 1-1 1.3-3.3 1.3-3.3s.3-2.8.5-5.6v-2.3zM9.5 15.5V8.5l6.5 3.5-6.5 3.5z"/>
-                                                </svg>
-                                            </div>
-                                            <p className="text-[11px] font-black text-slate-800 leading-tight uppercase line-clamp-2">
-                                                {recipe.title}
-                                            </p>
-                                            <p className="text-[9px] text-blue-500 font-bold mt-1 uppercase">Guarda Video →</p>
-                                        </a>
+                                        {/* Card Compatta */}
+                                        <div className="flex flex-col gap-2">
+                                            {/* Bottone Testo IA */}
+                                            <button 
+                                                onClick={() => setSelectedAiRecipe(recipe)}
+                                                className="bg-blue-600 p-2 rounded-xl shadow-sm active:scale-95 transition-all text-left"
+                                            >
+                                                <div className="bg-blue-500/50 rounded-lg py-2 flex items-center justify-center mb-1">
+                                                    <span className="text-sm">👨‍🍳</span>
+                                                </div>
+                                                <p className="text-[9px] font-black text-white leading-tight uppercase line-clamp-2 min-h-[22px]">
+                                                    {recipe.title}
+                                                </p>
+                                            </button>
+                    
+                                            {/* Bottone Video YouTube */}
+                                            <a 
+                                                href={`https://www.youtube.com/results?search_query=${recipe.query}`} 
+                                                target="_blank"
+                                                className="bg-white border border-slate-100 p-2 rounded-xl shadow-sm active:scale-95 transition-all"
+                                            >
+                                                <div className="bg-red-50 rounded-lg py-1 flex items-center justify-center mb-1">
+                                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="#ff0000"><path d="M23.5 12.4c-.2-2.8-.5-5.6-.5-5.6s-.3-2.3-1.3-3.3c-1.3-1.3-2.7-1.3-3.4-1.4C13.4 2 12 2 12 2s-1.4 0-6.3.1c-.7.1-2.1.1-3.4 1.4-1 1-1.3 3.3-1.3 3.3s-.3 2.8-.5 5.6v2.3c.2 2.8.5 5.6.5 5.6s.3 2.3 1.3 3.3c1.3 1.3 2.7 1.3 3.4 1.4 4.9.1 6.3.1 6.3.1s1.4 0 6.3-.1c.7-.1 2.1-.1 3.4-1.4 1-1 1.3-3.3 1.3-3.3s.3-2.8.5-5.6v-2.3zM9.5 15.5V8.5l6.5 3.5-6.5 3.5z"/></svg>
+                                                </div>
+                                                <p className="text-[8px] font-bold text-slate-500 uppercase text-center">Video Video</p>
+                                            </a>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -950,13 +972,13 @@
                             <div className="bg-white rounded-[2.5rem] w-full max-w-xs p-8 text-center shadow-2xl">
                                 <h3 className="text-xl font-black mb-2 uppercase">Svuota?</h3>
                                 <div className="flex flex-col gap-3 mt-8">
-                                    <button
-                                        onClick={() => {
-                                            setItems([]);
-                                            setShowConfirmReset(false);
-                                            setRecipes([]); 
-                                            setShowConfirmReset(false);
-                                        }}
+                                <button
+                                    onClick={() => {
+                                        setItems([]);           // Cancella la lista della spesa
+                                        setRecipes([]);         // Cancella i video (se stai usando ancora la vecchia variabile)
+                                        setAiRecipes([]);       // Cancella le nuove proposte testuali dello Chef
+                                        setShowConfirmReset(false); // Chiude il modale di conferma
+                                    }}
                                         className="bg-red-500 text-white rounded-2xl py-4 font-black uppercase text-xs"
                                     >
                                         Svuota
