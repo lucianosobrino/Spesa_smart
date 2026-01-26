@@ -119,6 +119,7 @@
             };
             
             const onDropCategory = (e, targetCat) => {
+                
               const idStr = e.dataTransfer.getData('text/plain');
               if (!idStr) return;
               const id = Number(idStr);
@@ -566,7 +567,7 @@ const processWithAI = async (input) => {
                                             <div
                                                 key={item.id}
                                                 className="flex items-center p-3.5"
-                                                draggable
+                                                draggable="true"
                                                 onDragStart={(e) => onDragStartItem(e, item.id)}
                                                 onClick={(e) => {
                                                           // evita che il click dopo il drop dia fastidio
