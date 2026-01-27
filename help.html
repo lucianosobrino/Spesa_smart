@@ -90,7 +90,7 @@
     .grid {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
-      gap: 1rem;
+      gap: 1.4rem;  /* più distanza verticale su telefono */
     }
 
     @media (min-width: 720px) {
@@ -113,6 +113,26 @@
       box-shadow: 0 16px 40px rgba(15, 23, 42, 0.35);
       border-color: #e2e8f0;
     }
+
+    /* Alternanza colori SOLO su mobile */
+    @media (max-width: 719px) {
+      .grid > .card,
+      .grid > .card.light {
+        /* reset base: tutte “scure” */
+        background: linear-gradient(145deg, #0f172a, #020617);
+        color: #e5e7eb;
+        border-color: rgba(148, 163, 184, 0.35);
+      }
+    
+      .grid > .card:nth-child(odd),
+      .grid > .card.light:nth-child(odd) {
+        /* caselle dispari più chiare */
+        background: #f8fafc;
+        color: #0f172a;
+        border-color: #e2e8f0;
+      }
+    }
+
 
     .tag {
       display: inline-block;
