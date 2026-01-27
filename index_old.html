@@ -6,7 +6,7 @@
     <title>Smart Grocery Chef Pro</title>
     
     <link rel="icon" type="image/png" href="SpesaSmart.png?v=1">
-    <link rel="apple-touch-icon" href="SpesaSmart.png?v=1">
+    <link rel="apple-touch-icon" href="ChefSpesa.png?v=3">
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -927,26 +927,38 @@ const processWithAI = async (input) => {
                     )}
 
                     {/* Wizard categoria manuale */}
+   {/* Wizard categoria manuale */}
                     {categoryWizardOpen && (
-                        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[80] flex items-center justify-center p-6">
-                            <div className="bg-white rounded-[2.5rem] w-full max-w-xs p-8 shadow-2xl text-center">
+                      <>
+                        {/*
+                          Ordina le categorie mettendo Altro sempre in cima
+                        */}
+                        {(() => {
+                          const sortedCategories = ['Altro', ...categoryOptions.filter(cat => cat !== 'Altro')];
+                    
+                          return (
+                            <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[80] flex items-center justify-center p-6">
+                              <div className="bg-white rounded-[2.5rem] w-full max-w-xs p-8 shadow-2xl text-center">
                                 <h3 className="text-lg font-black uppercase mb-4">Categoria</h3>
                                 <p className="text-sm font-black text-blue-600 mb-6 uppercase">
-                                    "{pendingCategoryItems[currentPendingIndex]}"
+                                  "{pendingCategoryItems[currentPendingIndex]}"
                                 </p>
-                            <div className="grid grid-cols-2 gap-2 mb-6 max-h-60 overflow-y-auto pr-1">
-                              {CATEGORY_OPTIONS.map(cat => (
-                                <button
-                                  key={cat}
-                                  onClick={() => addPendingItemWithCategory(cat)}
-                                  className="px-2.5 py-1.5 text-[9px] font-bold uppercase rounded-xl bg-slate-50 border border-slate-100"
-                                >
-                                  {cat}
-                                </button>
-                              ))}
+                                <div className="grid grid-cols-2 gap-2 mb-6 max-h-60 overflow-y-auto pr-1">
+                                  {sortedCategories.map(cat => (
+                                    <button
+                                      key={cat}
+                                      onClick={() => addPendingItemWithCategory(cat)}
+                                      className="px-2.5 py-1.5 text-[9px] font-bold uppercase rounded-xl bg-slate-50 border border-slate-100"
+                                    >
+                                      {cat}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
                             </div>
-                            </div>
-                        </div>
+                          );
+                        })()}
+                      </>
                     )}
 
                     {/* Conferma svuota lista */}
@@ -1092,7 +1104,7 @@ const processWithAI = async (input) => {
             </div>
 
             <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-hide">
-                {categoryOptions.map(cat => (
+                   {categoryOptions.map(cat => (
                     <div key={cat} className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <input 
                             type="text"
@@ -1114,7 +1126,9 @@ const processWithAI = async (input) => {
                             </button>
                         )}
                     </div>
-                ))}
+                ))}  
+          
+
             </div>
 
             <button
