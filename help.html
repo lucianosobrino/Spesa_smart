@@ -1,82 +1,517 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <title>Chef Spesa – Guida rapida</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Spesa Smart – Guida</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#f8fafc; color:#0f172a; margin:0; padding:16px; line-height:1.5; }
-    h1 { font-size:20px; margin-bottom:8px; }
-    h2 { font-size:14px; margin-top:16px; margin-bottom:4px; text-transform:uppercase; letter-spacing:.12em; color:#64748b; }
-    ul { padding-left:18px; margin-top:4px; }
-    li { margin-bottom:4px; font-size:13px; }
-    strong { font-weight:700; }
+    :root {
+      --bg: #0f172a;
+      --card: #f8fafc;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --text: #0f172a;
+      --muted: #64748b;
+      --radius-xl: 1.75rem;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 1.75rem 1.5rem 2.5rem;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 55%);
+      color: #e5e7eb;
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      padding: 0.55rem 1.4rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      font-weight: 800;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+    }
+
+    .btn-back span.icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin: 0 0 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 900;
+    }
+
+    h1 small {
+      display: block;
+      font-size: 0.7rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-top: 0.35rem;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 0.4rem 0 1.8rem;
+      font-size: 0.9rem;
+      color: #cbd5f5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
+    }
+
+    @media (min-width: 720px) {
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .card {
+      background: linear-gradient(145deg, #0f172a, #020617);
+      border-radius: var(--radius-xl);
+      padding: 1.25rem 1.25rem 1.35rem;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+
+    .card.light {
+      background: var(--card);
+      color: var(--text);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.35);
+      border-color: #e2e8f0;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #94a3b8;
+      margin-bottom: 0.45rem;
+      font-weight: 800;
+    }
+
+    .card.light .tag {
+      color: #64748b;
+    }
+
+    .card h2 {
+      margin: 0 0 0.4rem;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-weight: 900;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 800;
+      color: #e5e7eb;
+    }
+
+    .badge span {
+      font-size: 0.85rem;
+    }
+
+    .card.light .badge {
+      background: #eff6ff;
+      color: #1f2937;
+    }
+
+    p {
+      font-size: 0.78rem;
+      line-height: 1.5;
+      margin: 0.35rem 0;
+    }
+
+    ul {
+      margin: 0.35rem 0 0.2rem;
+      padding-left: 1.05rem;
+    }
+
+    li {
+      font-size: 0.78rem;
+      line-height: 1.5;
+      margin-bottom: 0.18rem;
+    }
+
+    code {
+      font-family: Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+        monospace;
+      font-size: 0.75rem;
+      padding: 0.08rem 0.28rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.08);
+    }
+
+    .card.light code {
+      background: #e5e7eb;
+    }
+
+    strong {
+      font-weight: 800;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px dashed rgba(148, 163, 184, 0.45);
+      margin: 1.6rem 0 1.2rem;
+    }
+
+    .footer-note {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #94a3b8;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-  <h1>Chef Spesa – Guida rapida</h1>
+  <main>
+    <!-- Link per tornare al programma -->
+    <a href="index.html" class="btn-back">
+      <span class="icon">←</span>
+      <span>torna al programma</span>
+    </a>
 
-  <h2>1. A cosa serve</h2>
-  <ul>
-    <li>Chef Spesa crea e gestisce in automatico la tua lista della spesa.</li>
-    <li>Puoi scrivere o dettare quello che ti serve e l’app organizza i prodotti per categoria.</li>
-  </ul>
+    <!-- Intestazione -->
+    <header>
+      <h1>Spesa Smart</h1>
+      <small>Lista della spesa con reparti e IA Gemini</small>
+      <p class="subtitle">
+        Questa pagina spiega come usare il programma, con e senza intelligenza artificiale,
+        come configurarlo e come gestire i reparti del supermercato.
+      </p>
+    </header>
 
-  <h2>2. Come aggiungere prodotti</h2>
-  <ul>
-    <li>Scrivi nella barra in basso una frase naturale, ad esempio: <strong>"domani compro latte, pane e prosciutto cotto"</strong>.</li>
-    <li>Premi il pulsante di invio (icona aeroplanino) oppure premi Invio sulla tastiera.</li>
-    <li>L’IA analizzerà la frase e aggiungerà gli articoli nelle categorie corrette (Frutta e Verdura, Macelleria, Pescheria, Dispensa, ecc.).</li>
-  </ul>
+    <!-- Panoramica e uso base -->
+    <section class="grid">
+      <article class="card">
+        <div class="tag">Panoramica</div>
+        <h2>Cosa fa il programma</h2>
+        <p>
+          Spesa Smart è una lista della spesa organizzata per reparti del supermercato.
+          Puoi aggiungere prodotti in modo classico oppure dettare una richiesta all’IA Gemini,
+          che trasforma frasi libere in prodotti divisi per categoria.
+        </p>
+        <p>
+          Ogni prodotto può essere segnato come acquistato, spostato in un altro reparto tramite drag & drop,
+          o rimosso dalla lista. Le categorie possono essere personalizzate dall’utente.
+        </p>
+      </article>
 
-  <h2>3. Uso del microfono</h2>
-  <ul>
-    <li>Premi l’icona del <strong>microfono</strong> accanto al pulsante di invio per attivare la dettatura.</li>
-    <li>Detta la frase con gli articoli da comprare; al termine la trascrizione comparirà nell’area di testo.</li>
-    <li>Premi di nuovo il microfono per fermare la registrazione, quindi invia la frase all’IA.</li>
-  </ul>
+      <article class="card light">
+        <div class="tag">Uso base</div>
+        <h2>Inserire i prodotti</h2>
+        <p>
+          Nella barra in basso trovi la casella di testo principale. Puoi scrivere una lista separata da virgole,
+          ad esempio:
+        </p>
+        <ul>
+          <li><strong>pane, acqua, latte, uova</strong></li>
+        </ul>
+        <p>
+          Premi <strong>Invio</strong> oppure il pulsante blu con l’icona del “razzo”
+          per aggiungere i prodotti alla lista.
+        </p>
+        <p>
+          Se l’IA è <strong>disattivata</strong>, il testo viene semplicemente diviso per virgole
+          e ogni elemento diventa un prodotto della lista.
+        </p>
+      </article>
+    </section>
 
-  <h2>4. Gestione della lista</h2>
-  <ul>
-    <li>Tocca un prodotto per segnarlo come <strong>preso</strong> o per ripristinarlo.</li>
-    <li>Usa l’icona dell’<strong>occhio</strong> per nascondere o mostrare i prodotti già presi.</li>
-    <li>Usa il cestino con la spunta per pulire tutti i prodotti segnati come presi.</li>
-    <li>Usa il cestino rosso per svuotare completamente la lista (verrà chiesta conferma).</li>
-  </ul>
+    <!-- IA Gemini -->
+    <section class="grid">
+      <article class="card light">
+        <div class="tag">IA Gemini</div>
+        <h2>Uso con intelligenza artificiale</h2>
+        <p>
+          Quando l’opzione <strong>“IA Attiva”</strong> è abilitata nelle impostazioni,
+          il testo inserito viene inviato all’IA Gemini per essere interpretato.
+        </p>
+        <ul>
+          <li>Puoi scrivere richieste naturali, ad esempio:
+            <br /><em>“Preparami la lista per una carbonara per 4 persone”</em>.
+          </li>
+          <li>L’IA prova a estrarre gli ingredienti e le quantità e li aggiunge alla lista.</li>
+          <li>Se nella risposta ci sono ricette, vengono salvate nella sezione “Ispirazione Chef”.</li>
+        </ul>
+        <p>
+          Se l’IA non è raggiungibile o la chiave non è valida, il programma mostra un messaggio di errore
+          in un riquadro dedicato.
+        </p>
+      </article>
 
-  <h2>5. Categorie e raggruppamento</h2>
-  <ul>
-    <li>I prodotti vengono raggruppati automaticamente per categoria (es. Latticini, Forno, Bevande, ecc.).</li>
-    <li>Tocca il titolo di una categoria per espandere o comprimere l’elenco relativo.</li>
-    <li>Puoi comprimere o espandere tutte le categorie insieme con l’apposita icona nella barra superiore.</li>
-  </ul>
+      <article class="card">
+        <div class="tag">Voce</div>
+        <h2>Dettare con il microfono</h2>
+        <p>
+          Accanto al pulsante blu di invio c’è il pulsante con l’icona del microfono.
+          Premendolo puoi dettare la lista a voce (se il browser supporta la sintesi vocale).
+        </p>
+        <ul>
+          <li>Premi il microfono per iniziare a registrare.</li>
+          <li>Premi di nuovo per terminare.</li>
+          <li>Il testo riconosciuto viene inserito nella casella e puoi inviarlo come se lo avessi scritto.</li>
+        </ul>
+      </article>
+    </section>
 
-  <h2>6. Ricette suggerite</h2>
-  <ul>
-    <li>Quando l’IA propone una ricetta, questa viene mostrata nella sezione <strong>Ricette suggerite</strong>.</li>
-    <li>Tocca una ricetta per aprire la ricerca corrispondente su YouTube o Instagram.</li>
-    <li>Puoi nascondere del tutto la sezione ricette dalle impostazioni.</li>
-  </ul>
+    <!-- Reparti e categorie -->
+    <section class="grid">
+      <article class="card light">
+        <div class="tag">Reparti</div>
+        <h2>Organizzazione per categorie</h2>
+        <p>
+          La lista è suddivisa per reparti (categorie) del supermercato.
+          Ogni reparto ha un’intestazione con il nome e il numero di articoli.
+        </p>
+        <p>
+          Cliccando sull’intestazione del reparto puoi <strong>espandere o comprimere</strong> la sezione
+          per vedere o nascondere gli articoli al suo interno.
+        </p>
+        <p>
+          La categoria <strong>“Altro”</strong> è sempre disponibile per gli articoli che non appartengono a un reparto specifico.
+        </p>
+      </article>
 
-  <h2>7. Cronologia comandi</h2>
-  <ul>
-    <li>Premi l’icona dell’<strong>orologio</strong> per vedere le frasi usate di recente.</li>
-    <li>Tocca una frase per ricaricarla nell’area di testo e riutilizzarla o modificarla.</li>
-  </ul>
+      <article class="card">
+        <div class="tag">Wizard categorie</div>
+        <h2>Assegnare il reparto ai prodotti</h2>
+        <p>
+          Quando aggiungi prodotti che il programma non conosce ancora,
+          si apre una finestra (wizard) che ti chiede in quale reparto inserirli.
+        </p>
+        <ul>
+          <li>Il wizard mostra l’elenco dei reparti configurati.</li>
+          <li>Puoi scegliere la categoria per ciascun prodotto.</li>
+          <li>Il programma memorizza l’associazione (es. “pane” → “Panetteria”) per le volte successive.</li>
+        </ul>
+      </article>
+    </section>
 
-  <h2>8. Impostazioni principali</h2>
-  <ul>
-    <li>Inserisci la tua <strong>API Key di Gemini</strong> per attivare l’IA.</li>
-    <li>Attiva o disattiva l’<strong>auto-salvataggio</strong> per mantenere la lista tra una sessione e l’altra.</li>
-    <li>Attiva o disattiva la visualizzazione delle <strong>ricette suggerite</strong>.</li>
-    <li>Da qui puoi anche aprire questa pagina di aiuto.</li>
-  </ul>
+    <!-- Dimentica e drag & drop -->
+    <section class="grid">
+      <article class="card">
+        <div class="tag">Dimentica reparto</div>
+        <h2>Riassegnare una categoria</h2>
+        <p>
+          Accanto a ogni prodotto c’è un pulsante per <strong>“dimenticare” il reparto</strong>.
+          Usalo se vuoi cambiare la categoria associata a un prodotto che il programma ricorda.
+        </p>
+        <ul>
+          <li>Il prodotto viene rimosso dal reparto attuale.</li>
+          <li>Il collegamento tra nome del prodotto e categoria viene cancellato dalla memoria.</li>
+          <li>Si riapre il wizard per scegliere un nuovo reparto per quel prodotto.</li>
+        </ul>
+      </article>
 
-  <h2>9. Note e limiti</h2>
-  <ul>
-    <li>La qualità del riconoscimento vocale dipende dal browser e dal rumore di fondo.</li>
-    <li>Alcune funzioni richiedono connessione Internet e una API Key valida.</li>
-  </ul>
+      <article class="card light">
+        <div class="tag">Riordino</div>
+        <h2>Spostare i prodotti tra reparti</h2>
+        <p>
+          Puoi spostare un prodotto da un reparto all’altro semplicemente trascinandolo
+          (drag & drop) sulla lista di un’altra categoria, se hai abilitato questa funzione nel codice.
+        </p>
+        <p>
+          Questo ti permette di correggere rapidamente la collocazione di un articolo
+          senza doverlo cancellare e reinserire.
+        </p>
+      </article>
+    </section>
+
+    <!-- Impostazioni -->
+    <section class="grid">
+      <article class="card light">
+        <div class="tag">Impostazioni</div>
+        <h2>Aprire la configurazione</h2>
+        <p>
+          Nella barra in alto del programma trovi il pulsante delle impostazioni.
+          Da qui puoi gestire il comportamento di Spesa Smart.
+        </p>
+        <ul>
+          <li><strong>IA Attiva</strong>: abilita o disabilita l’uso della chiave Gemini.</li>
+          <li><strong>Gemini API Key</strong>: campo dove inserire la chiave fornita da Google Gemini.</li>
+          <li><strong>Mostra Ricette</strong>: attiva o disattiva le schede “Ispirazione Chef”.</li>
+          <li><strong>Auto-Salvataggio</strong>: abilita il salvataggio automatico della lista e delle impostazioni.</li>
+          <li><strong>Gestisci Reparti</strong>: apre la schermata dove puoi modificare le categorie.</li>
+          <li><strong>Guida / Help</strong>: apre questa pagina di aiuto.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <div class="tag">Chiave Gemini</div>
+        <h2>Configurare l’API Key</h2>
+        <p>
+          Per usare l’IA devi ottenere una <strong>Gemini API Key</strong> dal sito di Google Gemini
+          e copiarla nel campo apposito delle impostazioni.
+        </p>
+        <ul>
+          <li>Apri il menu impostazioni e trova la sezione “Gemini API Key”.</li>
+          <li>Inserisci o incolla la chiave nel campo di testo.</li>
+          <li>Premi <strong>“Salva e Chiudi”</strong> per memorizzare la chiave nel browser.</li>
+        </ul>
+        <p>
+          Se la chiave non è valida o vengono superati i limiti di utilizzo,
+          il programma mostrerà un avviso di errore quando proverai a usare l’IA.
+        </p>
+      </article>
+    </section>
+
+    <!-- Gestione reparti -->
+    <section class="grid">
+      <article class="card">
+        <div class="tag">Reparti personalizzati</div>
+        <h2>Aggiungere, rinominare, eliminare</h2>
+        <p>
+          Dal pulsante <strong>“Gestisci Reparti”</strong> (nelle impostazioni) puoi aprire la schermata
+          di gestione dei reparti.
+        </p>
+        <ul>
+          <li><strong>Aggiungi</strong>: usa il pulsante “+” per creare un nuovo reparto.</li>
+          <li><strong>Rinomina</strong>: modifica il testo del reparto, verrà aggiornato ovunque.</li>
+          <li><strong>Elimina</strong>: rimuove un reparto (di solito dopo aver spostato o svuotato gli articoli).</li>
+          <li>Il reparto <strong>“Altro”</strong> è speciale e non può essere eliminato.</li>
+        </ul>
+      </article>
+
+      <article class="card light">
+        <div class="tag">Ordine reparti</div>
+        <h2>Ordinare le categorie</h2>
+        <p>
+          L’ordine dei reparti segue la configurazione salvata nel browser.
+          La categoria <strong>“Altro”</strong> viene mantenuta in una posizione fissa o privilegiata,
+          a seconda di come hai impostato il codice.
+        </p>
+        <p>
+          Se abiliti il drag & drop sui reparti, potrai trascinarli per decidere
+          l’ordine con cui compaiono nella lista.
+        </p>
+      </article>
+    </section>
+
+    <!-- Lista, cronologia e pulizia -->
+    <section class="grid">
+      <article class="card light">
+        <div class="tag">Lista</div>
+        <h2>Segnare come “preso”</h2>
+        <p>
+          Tocca un prodotto nella lista per marcarlo come <strong>acquistato</strong>.
+          L’elemento viene barrato e colorato più chiaro.
+        </p>
+        <p>
+          Puoi poi usare il comando per <strong>“Pulisci presi”</strong>:
+          il programma chiederà conferma e rimuoverà solo gli articoli segnati come presi.
+        </p>
+      </article>
+
+      <article class="card">
+        <div className="tag">Svuota</div>
+        <h2>Svuotare completamente la lista</h2>
+        <p>
+          Se vuoi ricominciare da zero, usa il comando per <strong>“Svuota lista”</strong>.
+          Verrà mostrata una finestra di conferma.
+        </p>
+        <ul>
+          <li><strong>Svuota</strong>: cancella tutti i prodotti dalla lista.</li>
+          <li>Vengono eliminati anche le proposte IA salvate nella sezione “Ispirazione Chef”.</li>
+          <li><strong>Annulla</strong>: chiude la finestra senza modificare nulla.</li>
+        </ul>
+      </article>
+    </section>
+
+    <!-- Cronologia -->
+    <section class="grid">
+      <article class="card">
+        <div class="tag">Cronologia</div>
+        <h2>Richieste recenti</h2>
+        <p>
+          Il programma mantiene una <strong>cronologia</strong> delle ultime richieste inserite
+          (soprattutto quando usi l’IA).
+        </p>
+        <ul>
+          <li>Puoi aprire la cronologia dalla voce dedicata nell’interfaccia.</li>
+          <li>Ogni voce mostra testo e data/ora della richiesta.</li>
+          <li>È possibile cancellare l’intera cronologia con l’apposito pulsante.</li>
+        </ul>
+      </article>
+
+      <article class="card light">
+        <div class="tag">Salvataggio</div>
+        <h2>Auto-Salvataggio</h2>
+        <p>
+          Se l’opzione <strong>“Auto-Salvataggio”</strong> è attiva, il programma salva automaticamente:
+        </p>
+        <ul>
+          <li>la lista della spesa;</li>
+          <li>le ricette/ispirazioni IA;</li>
+          <li>la cronologia delle richieste;</li>
+          <li>lo stato IA attiva/non attiva;</li>
+          <li>le associazioni prodotto → reparto;</li>
+          <li>alcune preferenze di configurazione.</li>
+        </ul>
+        <p>
+          Tutto viene salvato nel tuo browser, non su un server esterno.
+        </p>
+      </article>
+    </section>
+
+    <hr />
+
+    <!-- Link di ritorno -->
+    <p style="text-align:center; margin-top:1.1rem;">
+      <a href="index.html" class="btn-back">
+        <span class="icon">←</span>
+        <span>torna al programma</span>
+      </a>
+    </p>
+
+    <p class="footer-note">
+      Questa guida descrive il funzionamento generale di Spesa Smart. Alcuni dettagli
+      possono variare se modifichi il codice o aggiungi nuove funzionalità.
+    </p>
+  </main>
 </body>
 </html>
-
