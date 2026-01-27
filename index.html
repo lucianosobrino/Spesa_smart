@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chef Spesa</title>
+    <title>Smart Grocery Chef Pro</title>
     
     <link rel="icon" type="image/png" href="SpesaSmart.png?v=1">
     <link rel="apple-touch-icon" href="ChefSpesa.png?v=3">
@@ -30,53 +30,6 @@
         .mini-loader { width: 16px; height: 16px; border: 2px solid #ffffff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
         .error-shake { animation: shake 0.5s ease-in-out; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-        @keyframes splashScale {
-          0% {
-            transform: scale(0.3);
-            opacity: 0;
-          }
-          40% {
-            transform: scale(1.05);
-            opacity: 1;
-          }
-          70% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          100% {
-            transform: scale(1);
-            opacity: 0.95;
-          }
-        }
-        
-        @keyframes splashFade {
-          0% {
-            opacity: 0;
-            transform: translateY(6px);
-          }
-          40% {
-            opacity: 0;
-            transform: translateY(6px);
-          }
-          60% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-splash-scale {
-          animation: splashScale 2.2s ease-out forwards;
-        }
-        
-        .animate-splash-fade {
-          animation: splashFade 2.4s ease-out forwards;
-        }
-
-        
     </style>
 </head>
 <body>
@@ -85,13 +38,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
-        const [showDeleteCatModal, setShowDeleteCatModal] = useState(false);
-        const [catToDelete, setCatToDelete] = useState(null);
-        
         const App = () => {
-            const faviconHref =
-              document.querySelector('link[rel="icon"], link[rel="shortcut icon"]')?.href || '';
-
             const [apiKey, setApiKey] = useState(() => localStorage.getItem('chef_api_key') || '');
             const [items, setItems] = useState(() => {
                 try {
@@ -107,8 +54,6 @@
                     return [];
                 }
             });
-
-            const [showSplash, setShowSplash] = useState(true);
 
             //const [aiRecipeText, setAiRecipeText] = useState("");
             //const [showAiRecipeModal, setShowAiRecipeModal] = useState(false);
@@ -168,13 +113,6 @@
                     return ["Frutta e Verdura", "Gastronomia", "Macelleria", "Pescheria", "Latticini", "Surgelati", "Forno", "Dispensa", "Bevande", "Detersivi", "Igiene", "Altro"];
                 }
             });
-
-            // Splash iniziale di 3 secondi
-            useEffect(() => {
-              const timer = setTimeout(() => setShowSplash(false), 3000);
-              return () => clearTimeout(timer);
-            }, []);
-
             
                 // Effetto per il salvataggio automatico delle categorie
                 useEffect(() => {
@@ -519,35 +457,6 @@ const processWithAI = async (input) => {
 
             return (
                 <div className="max-w-md mx-auto min-h-screen px-4 pt-6 main-container">
-
-                {/* Splash iniziale con favicon e stato IA */}
-                {showSplash && (
-                  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950">
-                    <div className="flex flex-col items-center">
-                      {/* Logo che cresce */}
-                      <div
-                        className="w-24 h-24 mb-4 rounded-3xl bg-slate-900 flex items-center justify-center shadow-2xl shadow-blue-700/40 animate-splash-scale"
-                      >
-                        {faviconHref ? (
-                          <img
-                            src={faviconHref}
-                            alt="Spesa Smart"
-                            className="w-16 h-16 rounded-2xl"
-                          />
-                        ) : (
-                          <span className="text-3xl">🧺</span>
-                        )}
-                      </div>
-                
-                      {/* Stato IA */}
-                      <div className="px-4 py-2 rounded-full bg-slate-900/80 border border-slate-700 text-[10px] font-black uppercase tracking-[.2em] text-slate-200 animate-splash-fade">
-                        IA {aiEnabled ? 'attiva' : 'disattivata'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                    
                     {/* Header Azioni */}
                     <div className="flex justify-between items-center mb-6">
                         {/* Logo + titolo */}
@@ -1207,20 +1116,15 @@ const processWithAI = async (input) => {
                             className={`flex-1 bg-transparent text-xs font-bold outline-none ${cat === "Altro" ? 'text-slate-400' : 'text-slate-700'}`}
                         />
                         {cat !== "Altro" && (
-                              <button 
-                                onClick={() => {
-                                  setCatToDelete(cat);
-                                  setShowDeleteCatModal(true);
-                                }}
+                            <button 
+                                onClick={() => confirm(`Eliminare "${cat}"?`) && deleteCategory(cat)}
                                 className="text-red-400 p-1"
-                                title="Elimina reparto"
-                              >
+                            >
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3">
-                                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                 </svg>
-                              </button>
-                            )}
-
+                            </button>
+                        )}
                     </div>
                 ))}  
           
@@ -1237,44 +1141,6 @@ const processWithAI = async (input) => {
     </div>
 )}                    
 
-                {/* Modale conferma eliminazione reparto */}
-                {showDeleteCatModal && catToDelete && (
-                  <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[130] flex items-center justify-center p-6">
-                    <div className="bg-white rounded-[2.5rem] w-full max-w-xs p-8 text-center shadow-2xl">
-                      <h3 className="text-xl font-black mb-2 uppercase italic text-slate-900">
-                        Eliminare reparto?
-                      </h3>
-                      <p className="text-[11px] text-slate-500 font-bold uppercase mb-6">
-                        Verrà rimosso il reparto&nbsp;
-                        <span className="text-red-500">"{catToDelete}"</span>.
-                        Gli articoli eventualmente assegnati potranno essere riorganizzati in seguito.
-                      </p>
-                      <div className="flex flex-col gap-3">
-                        <button
-                          onClick={() => {
-                            deleteCategory(catToDelete);
-                            setShowDeleteCatModal(false);
-                            setCatToDelete(null);
-                          }}
-                          className="bg-red-500 text-white rounded-2xl py-4 font-black uppercase text-xs shadow-md shadow-red-200"
-                        >
-                          Elimina reparto
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowDeleteCatModal(false);
-                            setCatToDelete(null);
-                          }}
-                          className="bg-slate-100 text-slate-500 rounded-2xl py-4 font-black uppercase text-xs"
-                        >
-                          Annulla
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                    
                     {/* Modale errore */}
                     {errorModal.show && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
