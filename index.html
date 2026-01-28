@@ -85,8 +85,8 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
-        const [showDeleteCatModal, setShowDeleteCatModal] = useState(false);
-        const [catToDelete, setCatToDelete] = useState(null);
+        const [showDeleteCatModal, setShowDeleteCatModal] = React.useState(false);
+        const [catToDelete, setCatToDelete] = React.useState(null);
         
         const App = () => {
             const faviconHref =
@@ -108,7 +108,7 @@
                 }
             });
 
-            const [showSplash, setShowSplash] = useState(true);
+            const [showSplash, setShowSplash] = React.useState(true);
 
             //const [aiRecipeText, setAiRecipeText] = useState("");
             //const [showAiRecipeModal, setShowAiRecipeModal] = useState(false);
@@ -170,7 +170,7 @@
             });
 
             // Splash iniziale di 3 secondi
-            useEffect(() => {
+            React.useEffect(() => {
               const timer = setTimeout(() => setShowSplash(false), 3000);
               return () => clearTimeout(timer);
             }, []);
