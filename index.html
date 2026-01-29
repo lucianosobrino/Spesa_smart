@@ -171,9 +171,9 @@
                 }
             });
 
-            // Splash iniziale di 3 secondi
+            // Splash iniziale di 5 secondi
             useEffect(() => {
-              const timer = setTimeout(() => setShowSplash(false), 3000);
+              const timer = setTimeout(() => setShowSplash(false), 5000);
               return () => clearTimeout(timer);
             }, []);
 
@@ -524,12 +524,12 @@ const processWithAI = async (input) => {
 
                 {/* Splash iniziale con favicon e stato IA */}
                 {showSplash && (
-                  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950">
+                  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white">
                     <div className="flex flex-col items-center">
                       {/* Logo che cresce */}
-                      <div
-                        className="w-24 h-24 mb-4 rounded-3xl bg-slate-900 flex items-center justify-center shadow-2xl shadow-blue-700/40 animate-splash-scale"
-                      >
+                                            <div
+                                                className="w-24 h-24 mb-4 rounded-3xl bg-gray-100 flex items-center justify-center shadow-2xl shadow-slate-300/40 animate-splash-scale"
+                                            >
                         {faviconHref ? (
                           <img
                             src={faviconHref}
@@ -542,9 +542,9 @@ const processWithAI = async (input) => {
                       </div>
                 
                       {/* Stato IA */}
-                      <div className="px-4 py-2 rounded-full bg-slate-900/80 border border-slate-700 text-[10px] font-black uppercase tracking-[.2em] text-slate-200 animate-splash-fade">
-                        IA {aiEnabled ? 'attiva' : 'disattivata'}
-                      </div>
+                                            <div className="px-4 py-2 rounded-full bg-gray-100/80 border border-gray-300 text-[10px] font-black uppercase tracking-[.2em] text-slate-700 animate-splash-fade">
+                                                IA {aiEnabled ? 'attiva' : 'disattivata'}
+                                            </div>
                     </div>
                   </div>
                 )}
@@ -1196,7 +1196,7 @@ const processWithAI = async (input) => {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-hide">
+                 <div className="flex-1 overflow-y-auto pr-2 space-y-3">
                    {categoryOptions.map(cat => (
                     <div key={cat} className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <input 
