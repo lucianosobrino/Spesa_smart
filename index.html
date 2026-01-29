@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chef Spesa</title>
     
-    <link rel="icon" type="image/png" href="ChefSpesa.png?v=3">
-    <link rel="apple-touch-icon" href="ChefSpesa.png?v=3">
+    <link rel="icon" type="image/png" href="ChefSpesa.png?v=4">
+    <link rel="apple-touch-icon" href="ChefSpesa.png?v=4">
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -972,24 +972,24 @@ const processWithAI = async (input) => {
                                         </label>
                                     </div>
 
-{/* Link al Modale Reparti */}
-<div className="mt-6 pt-6 border-t border-slate-100">
-    <button 
-        onClick={() => setShowCategoryManager(true)}
-        className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 active:scale-95 transition-all group"
-    >
-        <div className="flex items-center gap-3">
-            <span className="text-xl">🗂️</span>
-            <div className="text-left">
-                <p className="text-[11px] font-black uppercase text-slate-800">Gestisci Reparti</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Aggiungi, rinomina o elimina</p>
-            </div>
-        </div>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-300 group-hover:text-blue-500 transition-colors">
-            <polyline points="9 18 15 12 9 6"/>
-        </svg>
-    </button>
-</div>                                    
+                                    {/* Link al Modale Reparti */}
+                                    <div className="mt-6 pt-6 border-t border-slate-100">
+                                        <button 
+                                            onClick={() => setShowCategoryManager(true)}
+                                            className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 active:scale-95 transition-all group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xl">🗂️</span>
+                                                <div className="text-left">
+                                                    <p className="text-[11px] font-black uppercase text-slate-800">Gestisci Reparti</p>
+                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">Aggiungi, rinomina o elimina</p>
+                                                </div>
+                                            </div>
+                                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-300 group-hover:text-blue-500 transition-colors">
+                                                <polyline points="9 18 15 12 9 6"/>
+                                            </svg>
+                                        </button>
+                                    </div>                                    
 
 
                                     {/* Help */}
@@ -1020,12 +1020,9 @@ const processWithAI = async (input) => {
                     )}
 
                     {/* Wizard categoria manuale */}
-   {/* Wizard categoria manuale */}
                     {categoryWizardOpen && (
                       <>
-                        {/*
-                          Ordina le categorie mettendo Altro sempre in cima
-                        */}
+                        {/* Ordina le categorie mettendo Altro sempre in cima */}
                         {(() => {
                           const sortedCategories = ['Altro', ...categoryOptions.filter(cat => cat !== 'Altro')];
                     
@@ -1157,87 +1154,87 @@ const processWithAI = async (input) => {
                         </div>
                     )}
 
-{/* Modale per leggere la ricetta dell'IA (Versione corretta) */}
-{selectedAiRecipe && (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex items-center justify-center p-6">
-        <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[80vh]">
-            <h3 className="text-lg font-black uppercase mb-4 flex items-center gap-2 italic">
-                <span className="text-2xl">👨‍🍳</span> {selectedAiRecipe.title}
-            </h3>
-            <div className="flex-1 overflow-y-auto text-[13px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap pr-2">
-                {selectedAiRecipe.full_text}
-            </div>
-            <button
-                onClick={() => setSelectedAiRecipe(null)}
-                className="mt-6 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest"
-            >
-                Chiudi
-            </button>
-        </div>
-    </div>
-)}
+                    {/* Modale per leggere la ricetta dell'IA (Versione corretta) */}
+                    {selectedAiRecipe && (
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex items-center justify-center p-6">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[80vh]">
+                                <h3 className="text-lg font-black uppercase mb-4 flex items-center gap-2 italic">
+                                    <span className="text-2xl">👨‍🍳</span> {selectedAiRecipe.title}
+                                </h3>
+                                <div className="flex-1 overflow-y-auto text-[13px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap pr-2">
+                                    {selectedAiRecipe.full_text}
+                                </div>
+                                <button
+                                    onClick={() => setSelectedAiRecipe(null)}
+                                    className="mt-6 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest"
+                                >
+                                    Chiudi
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
-{/* MODALE GESTIONE REPARTI (LIVELLO 2) */}
-{showCategoryManager && (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[120] flex items-center justify-center p-6">
-        <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-black uppercase italic tracking-tight">I tuoi Reparti</h3>
-                <button 
-                    onClick={() => {
-                        const name = prompt("Nome nuovo reparto:");
-                        if(name) addCategory(name);
-                    }}
-                    className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-200"
-                >
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                </button>
-            </div>
+                {/* MODALE GESTIONE REPARTI (LIVELLO 2) */}
+                {showCategoryManager && (
+                    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[120] flex items-center justify-center p-6">
+                        <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[85vh]">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-lg font-black uppercase italic tracking-tight">I tuoi Reparti</h3>
+                                <button 
+                                    onClick={() => {
+                                        const name = prompt("Nome nuovo reparto:");
+                                        if(name) addCategory(name);
+                                    }}
+                                    className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-200"
+                                >
+                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3">
+                                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                                    </svg>
+                                </button>
+                            </div>
 
-                 <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-                   {categoryOptions.map(cat => (
-                    <div key={cat} className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <input 
-                            type="text"
-                            defaultValue={cat}
-                            disabled={cat === "Altro"}
-                            onBlur={(e) => {
-                                if (e.target.value !== cat) renameCategory(cat, e.target.value);
-                            }}
-                            className={`flex-1 bg-transparent text-xs font-bold outline-none ${cat === "Altro" ? 'text-slate-400' : 'text-slate-700'}`}
-                        />
-                        {cat !== "Altro" && (
-                              <button 
-                                onClick={() => {
-                                  setCatToDelete(cat);
-                                  setShowDeleteCatModal(true);
-                                }}
-                                className="text-red-400 p-1"
-                                title="Elimina reparto"
-                              >
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3">
-                                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                </svg>
-                              </button>
-                            )}
+                                <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+                                {categoryOptions.map(cat => (
+                                    <div key={cat} className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                        <input 
+                                            type="text"
+                                            defaultValue={cat}
+                                            disabled={cat === "Altro"}
+                                            onBlur={(e) => {
+                                                if (e.target.value !== cat) renameCategory(cat, e.target.value);
+                                            }}
+                                            className={`flex-1 bg-transparent text-xs font-bold outline-none ${cat === "Altro" ? 'text-slate-400' : 'text-slate-700'}`}
+                                        />
+                                        {cat !== "Altro" && (
+                                            <button 
+                                                onClick={() => {
+                                                setCatToDelete(cat);
+                                                setShowDeleteCatModal(true);
+                                                }}
+                                                className="text-red-400 p-1"
+                                                title="Elimina reparto"
+                                            >
+                                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3">
+                                                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                </svg>
+                                            </button>
+                                            )}
 
+                                    </div>
+                                ))}  
+                        
+
+                            </div>
+
+                            <button
+                                onClick={() => setShowCategoryManager(false)}
+                                className="mt-8 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest shadow-xl"
+                            >
+                                Torna alle impostazioni
+                            </button>
+                        </div>
                     </div>
-                ))}  
-          
-
-            </div>
-
-            <button
-                onClick={() => setShowCategoryManager(false)}
-                className="mt-8 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest shadow-xl"
-            >
-                Torna alle impostazioni
-            </button>
-        </div>
-    </div>
-)}                    
+                )}                    
 
                 {/* Modale conferma eliminazione reparto */}
                 {showDeleteCatModal && catToDelete && (
