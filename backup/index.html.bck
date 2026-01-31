@@ -85,11 +85,55 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
+        // Global error handlers to surface JS errors directly in the page for easier debugging
+        window.addEventListener('error', (e) => {
+            try {
+                const pre = document.createElement('pre');
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.style.background = '#111';
+                pre.style.color = '#fff';
+                pre.style.padding = '1rem';
+                pre.textContent = `JS Error: ${e.message}\n${e.filename}:${e.lineno}:${e.colno}\n${e.error && e.error.stack ? e.error.stack : ''}`;
+                document.getElementById('root').innerHTML = '';
+                document.getElementById('root').appendChild(pre);
+            } catch (err) {
+                console.error('Error handler failed', err);
+            }
+        });
+        window.addEventListener('unhandledrejection', (ev) => {
+            try {
+                const pre = document.createElement('pre');
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.style.background = '#111';
+                pre.style.color = '#fff';
+                pre.style.padding = '1rem';
+                pre.textContent = `Unhandled Rejection: ${ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason)}`;
+                document.getElementById('root').innerHTML = '';
+                document.getElementById('root').appendChild(pre);
+            } catch (err) { console.error(err); }
+        });
+
+        async function loadPrompt(filePath) {
+            try {
+                const response = await fetch(filePath);
+                if (!response.ok) throw new Error('Prompt file not found');
+                return await response.text();
+            } catch (e) {
+                // fallback template: must include {{textInput}} for replacement
+                return `Sei un classificatore. Ricevi il testo: "{{textInput}}". Rispondi SOLO in JSON con una proprietà \"categoria\" il cui valore sia esattamente uno di: RICETTA, LISTA, GENERICA.`;
+            }
+        }
+
+
          
         const App = () => {
 
             const [showDeleteCatModal, setShowDeleteCatModal] = useState(false);
             const [catToDelete, setCatToDelete] = useState(null);
+            const [showModal, setShowModal] = useState(false);
+            const [modalContent, setModalContent] = useState('');
+            const [showClassifyToast, setShowClassifyToast] = useState(false);
+            const [classificationLabel, setClassificationLabel] = useState('');
    
             const faviconHref =
               document.querySelector('link[rel="icon"], link[rel="shortcut icon"]')?.href || '';
@@ -356,7 +400,7 @@ const processWithAI = async (input) => {
 
     setIsLoading(true);
 
-    try {
+  /*   try {
         // DEFINIZIONE ISTRUZIONI (FUORI DAL FETCH)
         const systemText = `Sei un esperto Chef. Rispondi SOLO in JSON: 
         {
@@ -431,7 +475,236 @@ const processWithAI = async (input) => {
         setErrorModal({ show: true, title: "Errore", message: e.message });
     } finally {
         setIsLoading(false);
-    }
+    } */
+    setIsLoading(true);
+    try {
+        const textInput = query.trim();
+        if (!textInput) return;
+
+        // 1. CARICA IL PROMPT DI CLASSIFICAZIONE
+        const classifyPromptTemplate = await loadPrompt("prompts/classify.txt");
+        const classifyPrompt = classifyPromptTemplate.replace("{{textInput}}", textInput);
+
+        // 2. CHIAMATA DI CLASSIFICAZIONE
+        const classifyResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [
+                { role: "user", parts: [{ text: classifyPrompt }] }
+                ],
+                generationConfig: { responseMimeType: "application/json" }
+            })
+            }
+        );
+
+        const classifyJson = await classifyResponse.json();
+        let classification;
+        try {
+            const classifyText = classifyJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!classifyText) throw new Error('Empty classification response');
+            classification = JSON.parse(classifyText);
+        } catch (e) {
+            console.error('Classification parse error', e, classifyJson);
+            // Fallback euristico semplice
+            const low = textInput.toLowerCase();
+            if (/\b(ricetta|ingredienti|preparazione|procedimento|cottura|forno|mescola)\b/.test(low)) {
+                classification = { categoria: 'RICETTA' };
+            } else if (/[,\n]/.test(textInput) || textInput.split(/\s+/).length <= 6) {
+                classification = { categoria: 'LISTA' };
+            } else {
+                classification = { categoria: 'GENERICA' };
+            }
+        }
+
+        // show brief classification toast then continue
+        const label = classification?.categoria || 'GENERICA';
+        setClassificationLabel(label);
+        setShowClassifyToast(true);
+        await new Promise(res => setTimeout(res, 1000));
+        setShowClassifyToast(false);
+
+        // 3. DECIDI IL FLUSSO
+        switch (classification.categoria) {
+            case "RICETTA": {
+            // QUI USI IL TUO systemText CHE GIÀ HAI
+            const systemText = `Sei un esperto Chef. Rispondi SOLO in JSON: 
+                {
+                "add": [{"n": "nome", "q": "quantità", "c": "CATEGORIA"}],
+                "recipes": [{"title": "Titolo", "query": "ricerca youtube", "full_text": "procedimento...", "platform": "youtube"}]
+                }
+                CATEGORIE: Frutta/Verdura, Frigorifero, Macelleria, Gastronomia, Pescheria, Forno/Panificati, Dispensa, Bevande, Casa/Igiene, Surgelati, Altro.`;
+
+            const recipeResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+                {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [
+                    { role: "user", parts: [{ text: systemText }] },
+                    { role: "user", parts: [{ text: textInput }] }
+                    ],
+                    generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+                })
+                }
+            );
+
+            const recipeJson = await recipeResponse.json();
+            let recipeData = null;
+            try {
+                const recipeText = recipeJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+                recipeData = recipeText ? JSON.parse(recipeText) : null;
+            } catch (e) {
+                console.error('Recipe parse error', e, recipeJson);
+            }
+            // se l'IA fornisce prodotti, aggiungili alla lista (anti-duplicato)
+            if (recipeData && Array.isArray(recipeData.add) && recipeData.add.length > 0) {
+                const toAdd = [];
+                recipeData.add.forEach(newItem => {
+                    const name = (newItem.n || '').trim();
+                    if (!name) return;
+                    const norm = name.toLowerCase();
+                    const exists = items.some(i => i.name.toLowerCase().trim() === norm);
+                    if (!exists) {
+                        toAdd.push({ id: Date.now() + Math.random(), name, q: newItem.q || '', category: newItem.c || 'Altro', bought: false });
+                    }
+                });
+                if (toAdd.length > 0) {
+                    setItems(prev => [...prev, ...toAdd]);
+                    // aggiorna la mappa categorie
+                    setCategoryMap(prev => {
+                        const copy = { ...prev };
+                        toAdd.forEach(it => { copy[it.name.toLowerCase()] = it.category; });
+                        localStorage.setItem('chef_category_map', JSON.stringify(copy));
+                        return copy;
+                    });
+                }
+            }
+            // gestione ricette IA
+            if (recipeData && Array.isArray(recipeData.recipes) && recipeData.recipes.length > 0) {
+                const recipesWithId = recipeData.recipes.map(r => ({ ...r, id: Date.now() + Math.random() }));
+                setAiRecipes(prev => [...recipesWithId, ...prev]);
+            }
+            break;
+            }
+
+            case "LISTA": {
+            // Chiedi all'IA di separare correttamente gli elementi della lista e rispondere in JSON
+            try {
+                const parseSystem = `Sei un assistente che estrae elementi per una lista della spesa. Rispondi SOLO in JSON con la forma: {"add":[{"n":"nome","q":"quantità","c":"CATEGORIA"}]}. Non aggiungere spiegazioni.`;
+                const parsePrompt = `Separa correttamente gli elementi nella seguente stringa e restituisci solo il JSON richiesto: "${textInput}"`;
+
+                const parseResp = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [
+                                { role: "user", parts: [{ text: parseSystem }] },
+                                { role: "user", parts: [{ text: parsePrompt }] }
+                            ],
+                            generationConfig: { responseMimeType: "application/json", temperature: 0.0 }
+                        })
+                    }
+                );
+
+                const parseJson = await parseResp.json();
+                let parsedData = null;
+                try {
+                    const parseText = parseJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    parsedData = parseText ? JSON.parse(parseText) : null;
+                } catch (e) {
+                    console.error('Parse list JSON error', e, parseJson);
+                }
+
+                if (parsedData && Array.isArray(parsedData.add) && parsedData.add.length > 0) {
+                    const toAdd = [];
+                    parsedData.add.forEach(newItem => {
+                        const name = (newItem.n || '').trim();
+                        if (!name) return;
+                        const norm = name.toLowerCase();
+                        const exists = items.some(i => i.name.toLowerCase().trim() === norm);
+                        if (!exists) toAdd.push({ id: Date.now() + Math.random(), name, q: newItem.q || '', category: newItem.c || 'Altro', bought: false });
+                    });
+                    if (toAdd.length > 0) {
+                        setItems(prev => [...prev, ...toAdd]);
+                        setCategoryMap(prev => {
+                            const copy = { ...prev };
+                            toAdd.forEach(it => { copy[it.name.toLowerCase()] = it.category; });
+                            localStorage.setItem('chef_category_map', JSON.stringify(copy));
+                            return copy;
+                        });
+                    }
+                } else {
+                    // fallback locale se IA non risponde correttamente
+                    const parsed = textInput
+                        .split(/[,\n]/)
+                        .map(s => s.trim())
+                        .filter(Boolean);
+                    const toAdd = [];
+                    parsed.forEach(name => {
+                        const norm = name.toLowerCase();
+                        if (!items.some(i => i.name.toLowerCase().trim() === norm)) {
+                            toAdd.push({ id: Date.now() + Math.random(), name, q: '', category: 'Altro', bought: false });
+                        }
+                    });
+                    if (toAdd.length > 0) setItems(prev => [...prev, ...toAdd]);
+                }
+            } catch (e) {
+                console.error('Errore parsing lista via IA:', e);
+            }
+            break;
+            }
+
+            case "GENERICA": {
+            // Apri modale con risposta generica
+            const genericPrompt = `Rispondi in modo utile e breve a questa domanda generica su cucina/spesa:
+                "${textInput}"
+                Rispondi in massimo 3 frasi, tono amichevole.`;
+
+            const genericResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+                {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [
+                    { role: "user", parts: [{ text: genericPrompt }] }
+                    ]
+                })
+                }
+            );
+
+            const genericJson = await genericResponse.json();
+            const genericText = genericJson?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+            setShowModal(true);
+            setModalContent(genericText || 'Risposta IA non disponibile.');
+            break;
+            }
+
+            default: {
+            // fallback
+            setShowModal(true);
+            setModalContent("Non ho capito bene, puoi essere più specifico?");
+            break;
+            }
+        }
+
+        // clear input after processing
+        setTextInput('');
+
+        } catch (err) {
+        console.error("Errore classificazione/generazione:", err);
+        setShowModal(true);
+        setModalContent("Errore di comunicazione con l'IA.");
+        } finally {
+        setIsLoading(false);
+        }
+
 };
             // const addPendingItemWithCategory = (cat) => {
             //    const name = pendingCategoryItems[currentPendingIndex];
@@ -549,6 +822,15 @@ const processWithAI = async (input) => {
                   </div>
                 )}
 
+                                {/* Toast breve con interpretazione classificazione */}
+                                {showClassifyToast && (
+                                    <div className="fixed inset-0 z-[210] flex items-center justify-center pointer-events-none">
+                                        <div className="pointer-events-auto bg-blue-600 text-white px-6 py-3 rounded-xl shadow-lg text-sm font-black">
+                                            Interpretazione: {classificationLabel}
+                                        </div>
+                                    </div>
+                                )}
+
                     
                     {/* Header Azioni */}
                     <div className="flex justify-between items-center mb-6">
@@ -569,7 +851,7 @@ const processWithAI = async (input) => {
                             {/* Nascondi/mostra presi */}
                             <button
                                 onClick={() => setHideBought(!hideBought)}
-                                className="has-tooltip p-2 text-slate-400 hover:text-blue-600 active:scale-90 transition-all"
+                                className={`has-tooltip p-2 ${hideBought ? 'text-red-500 hover:text-red-600' : 'text-green-500 hover:text-green-600'} active:scale-90 transition-all`}
                             >
                                 {hideBought ? (
                                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -590,7 +872,7 @@ const processWithAI = async (input) => {
                             {/* Collassa/espandi categorie */}
                             <button
                                 onClick={toggleGlobalCollapse}
-                                className="has-tooltip p-2 text-slate-400 hover:text-slate-600 active:scale-90 transition-all"
+                                className={`has-tooltip p-2 ${areAllCollapsed ? 'text-red-500 hover:text-red-600' : 'text-green-500 hover:text-green-600'} active:scale-90 transition-all`}
                             >
                                 {areAllCollapsed ? (
                                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -641,16 +923,21 @@ const processWithAI = async (input) => {
 
                       
 
-                            {/* Cronologia */}
+                            {/* Toggle IA */}
                             <button
-                                onClick={() => setShowHistory(true)}
-                                className="has-tooltip p-2 text-slate-400 hover:text-slate-600 active:scale-90 transition-all"
+                                onClick={() => setAiEnabled(!aiEnabled)}
+                                className={`has-tooltip p-2 ${aiEnabled ? 'text-green-500 hover:text-green-600' : 'text-red-500 hover:text-red-600'} active:scale-90 transition-all`}
                             >
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <polyline points="12 6 12 12 16 14"/>
-                                </svg>
-                                <span className="tooltip">Cronologia</span>
+                                {aiEnabled ? (
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+                                    </svg>
+                                ) : (
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" opacity="0.4">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+                                    </svg>
+                                )}
+                                <span className="tooltip">{aiEnabled ? 'Disattiva IA' : 'Attiva IA'}</span>
                             </button>
 
                             {/* Impostazioni */}
@@ -834,7 +1121,7 @@ const processWithAI = async (input) => {
                             </div>
                         </div>
                     )}
-                    {/* Barra input in basso */}
+                    
                     <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-slate-100 via-slate-100/90 to-transparent">
                         <div className="max-w-md mx-auto relative">
                             {isLoading && (
@@ -843,7 +1130,7 @@ const processWithAI = async (input) => {
                                     <span className="text-[10px] font-black uppercase">IA...</span>
                                 </div>
                             )}
-                            <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-200 p-2 flex items-end gap-2">
+                            <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-200 p-2 flex items-end gap-2 pr-20 relative">
                                 <textarea
                                     value={textInput}
                                     onChange={(e) => setTextInput(e.target.value)}
@@ -854,40 +1141,43 @@ const processWithAI = async (input) => {
                                         }
                                     }}
                                     placeholder="Cosa serve?"
-                                    className="flex-1 bg-transparent py-4 ml-4 text-sm font-bold focus:outline-none resize-none"
+                                    className="flex-1 bg-transparent py-4 ml-4 mr-2 text-sm font-bold focus:outline-none resize-none"
                                     rows="1"
                                 />
-                                <button
-                                    onClick={() => {
-                                        if (!recognitionRef.current) return;
-                                        if (isRecording) {
-                                            recognitionRef.current.stop();
-                                        } else {
-                                            recognitionRef.current.start();
-                                            setIsRecording(true);
-                                        }
-                                    }}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                        isRecording ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400'
-                                    }`}
-                                >
-                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                        <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3z"/>
-                                        <path d="M19 11a7 7 0 0 1-14 0"/>
-                                        <line x1="12" y1="18" x2="12" y2="22"/>
-                                        <line x1="8" y1="22" x2="16" y2="22"/>
-                                    </svg>
-                                </button>
-                                <button
-                                    onClick={() => processWithAI(textInput)}
-                                    disabled={!textInput.trim() || isLoading}
-                                    className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg active:scale-95 disabled:opacity-50"
-                                >
-                                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="3">
-                                        <line x1="22" y1="2" x2="11" y2="13"/>
-                                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                                    </svg>
-                                </button>
+
+                                {/* Pulsanti all'interno della barra di input (microfono + invio) */}
+                                <div className="absolute right-4 bottom-3 flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            if (!recognitionRef.current) return;
+                                            if (isRecording) {
+                                                recognitionRef.current.stop();
+                                            } else {
+                                                recognitionRef.current.start();
+                                                setIsRecording(true);
+                                            }
+                                        }}
+                                        className={`w-10 h-10 rounded-full flex items-center justify-center ${isRecording ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400'}`}
+                                    >
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3z"/>
+                                            <path d="M19 11a7 7 0 0 1-14 0"/>
+                                            <line x1="12" y1="18" x2="12" y2="22"/>
+                                            <line x1="8" y1="22" x2="16" y2="22"/>
+                                        </svg>
+                                    </button>
+
+                                    <button
+                                        onClick={() => processWithAI(textInput)}
+                                        disabled={!textInput.trim() || isLoading}
+                                        className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg active:scale-95 disabled:opacity-50"
+                                    >
+                                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="3">
+                                            <line x1="22" y1="2" x2="11" y2="13"/>
+                                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -895,15 +1185,34 @@ const processWithAI = async (input) => {
                     {/* Modale impostazioni */}
                     {showSettings && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-6">
-                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl">
-                                <h3 className="text-xl font-black text-slate-800 mb-8 text-center uppercase italic">
+                            <div className="relative bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+                                {/* Pulsante X di chiusura (nella area bianca) */}
+                                <button
+                                    onClick={() => {
+                                        if (showHistory) {
+                                            setShowHistory(false);
+                                        } else {
+                                            setShowSettings(false);
+                                        }
+                                    }}
+                                    className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors bg-slate-50/40 rounded-full w-8 h-8 flex items-center justify-center"
+                                >
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                </button>
+
+                                {!showHistory ? (
+                                <>
+                                <h3 className="text-lg font-black text-slate-800 mb-3 text-center uppercase italic pr-8">
                                     Configurazione
                                 </h3>
-                                <div className="space-y-4 mb-10">
+                                <div className="space-y-2 mb-3 overflow-y-hidden overflow-x-hidden max-h-[calc(92vh-140px)] pr-2">
                                     
                                     {/* IA Attiva */}
-                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-                                        <span className="text-[10px] font-black uppercase">IA Attiva</span>
+                                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                                        <span className="text-[9px] font-black uppercase">IA Attiva</span>
                                         <label className="toggle-switch">
                                             <input
                                                 type="checkbox"
@@ -916,14 +1225,14 @@ const processWithAI = async (input) => {
 
                                     {/* API KEY */}
                                     <div>
-                                      <div className="flex items-center justify-between mb-2 px-1">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                      <div className="flex items-center justify-between mb-1 px-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                           Gemini API Key
                                         </label>
                                         <button
                                           type="button"
                                           onClick={() => { window.location.href = 'apikey.html'; }}
-                                          className="has-tooltip text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                                          className="has-tooltip text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 flex items-center gap-1"
                                         >
                                           <span>Info</span>
                                           <span className="tooltip">Apri guida configurazione API</span>
@@ -935,20 +1244,20 @@ const processWithAI = async (input) => {
                                         id="key_field"
                                         defaultValue={apiKey}
                                         placeholder="Inserisci chiave..."
-                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-blue-500 outline-none"
+                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-3 py-2 text-xs font-bold focus:border-blue-500 outline-none"
                                       />
                                     </div>
                                     
                                     {/* Mostra Ricette (solo se IA attiva) */}
 
-                                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">
+                                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <span className="text-[9px] font-black text-slate-700 uppercase tracking-tight">
                                           Mostra Ricette
                                         </span>
                                         <label className="toggle-switch">
                                             <input
                                               type="checkbox"
-                                              checked={aiEnabled && showSocial}   // se IA off → sempre false
+                                              checked={aiEnabled && showSocial}
                                               onChange={() => setShowSocial(!showSocial)}
                                               disabled={!aiEnabled}
                                             />
@@ -958,8 +1267,8 @@ const processWithAI = async (input) => {
 
 
                                     {/* Auto-Salvataggio */}
-                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">
+                                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <span className="text-[9px] font-black text-slate-700 uppercase tracking-tight">
                                             Auto-Salvataggio
                                         </span>
                                         <label className="toggle-switch">
@@ -972,38 +1281,36 @@ const processWithAI = async (input) => {
                                         </label>
                                     </div>
 
-                                    {/* Link al Modale Reparti */}
-                                    <div className="mt-6 pt-6 border-t border-slate-100">
-                                        <button 
-                                            onClick={() => setShowCategoryManager(true)}
-                                            className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 active:scale-95 transition-all group"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-xl">🗂️</span>
-                                                <div className="text-left">
-                                                    <p className="text-[11px] font-black uppercase text-slate-800">Gestisci Reparti</p>
-                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">Aggiungi, rinomina o elimina</p>
-                                                </div>
-                                            </div>
-                                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-300 group-hover:text-blue-500 transition-colors">
-                                                <polyline points="9 18 15 12 9 6"/>
-                                            </svg>
-                                        </button>
-                                    </div>                                    
+                                    {/* Gestione Reparti, Cronologia, Help su una riga */}
+                                    <div className="mt-3 pt-3 border-t border-slate-100">
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <button 
+                                                onClick={() => setShowCategoryManager(true)}
+                                                className="has-tooltip flex flex-col items-center justify-center p-2 bg-slate-50 rounded-xl border border-slate-100 active:scale-95 transition-all hover:bg-blue-50"
+                                            >
+                                                <span className="text-lg">🗂️</span>
+                                                <span className="tooltip">Gestisci Reparti</span>
+                                            </button>
 
+                                            <button 
+                                                onClick={() => setShowHistory(true)}
+                                                className="has-tooltip flex flex-col items-center justify-center p-2 bg-slate-50 rounded-xl border border-slate-100 active:scale-95 transition-all hover:bg-blue-50"
+                                            >
+                                                <span className="text-lg">⏱️</span>
+                                                <span className="tooltip">Cronologia</span>
+                                            </button>
 
-                                    {/* Help */}
-                                    <div className="flex flex-col gap-3 mt-4">
-                                        <button
-                                            onClick={() => {
-                                                window.location.href = 'help.html';
-                                            }}
-                                            className="w-full bg-slate-100 text-slate-700 rounded-2xl py-3 text-[11px] font-black uppercase tracking-widest"
-                                        >
-                                            Guida / Help
-                                        </button>
+                                            <button 
+                                                onClick={() => { window.location.href = 'help.html'; }}
+                                                className="has-tooltip flex flex-col items-center justify-center p-2 bg-slate-50 rounded-xl border border-slate-100 active:scale-95 transition-all hover:bg-blue-50"
+                                            >
+                                                <span className="text-lg">❓</span>
+                                                <span className="tooltip">Guida / Help</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                                {/* Pulsante Salva e Chiudi (nella maschera di Configurazione) */}
                                 <button
                                     onClick={() => {
                                         const val = document.getElementById('key_field').value.trim();
@@ -1011,10 +1318,44 @@ const processWithAI = async (input) => {
                                         localStorage.setItem('chef_api_key', val);
                                         setShowSettings(false);
                                     }}
-                                    className="w-full bg-blue-600 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-200"
+                                    className="mt-3 w-full bg-blue-600 text-white rounded-xl py-2 text-xs font-black uppercase tracking-widest shadow-sm"
                                 >
                                     Salva e Chiudi
                                 </button>
+                                </>
+                                ) : (
+                                <>
+                                <div className="flex items-center justify-between mb-3 pr-8">
+                                    <h3 className="text-lg font-black uppercase">Cronologia</h3>
+                                </div>
+                                <div className="flex-1 overflow-y-hidden overflow-x-hidden pr-2 space-y-2">
+                                    {history.length === 0 && (
+                                        <p className="text-[11px] text-slate-400 font-bold uppercase text-center">
+                                            Nessuna richiesta ancora.
+                                        </p>
+                                    )}
+                                    {history.map(entry => (
+                                        <div
+                                            key={entry.id}
+                                            className="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-700"
+                                        >
+                                            <div className="text-[10px] text-slate-400 uppercase mb-1">
+                                                {new Date(entry.ts).toLocaleString('it-IT')}
+                                            </div>
+                                            {entry.text}
+                                        </div>
+                                    ))}
+                                </div>
+                                {history.length > 0 && (
+                                    <button
+                                        onClick={() => setHistory([])}
+                                        className="mt-2 w-full bg-slate-900 text-white rounded-xl py-2 text-[10px] font-black uppercase"
+                                    >
+                                        Svuota cronologia
+                                    </button>
+                                )}
+                                </>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1108,51 +1449,7 @@ const processWithAI = async (input) => {
                         </div>
                     )}
 
-                    {/* Cronologia */}
-                    {showHistory && (
-                        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[65] flex items-center justify-center p-6">
-                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[70vh]">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-black uppercase">Cronologia</h3>
-                                    <button
-                                        onClick={() => setShowHistory(false)}
-                                        className="text-slate-300 hover:text-slate-500"
-                                    >
-                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                            <line x1="18" y1="6" x2="6" y2="18"/>
-                                            <line x1="6" y1="6" x2="18" y2="18"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div className="flex-1 overflow-y-auto pr-1 space-y-2">
-                                    {history.length === 0 && (
-                                        <p className="text-[11px] text-slate-400 font-bold uppercase text-center">
-                                            Nessuna richiesta ancora.
-                                        </p>
-                                    )}
-                                    {history.map(entry => (
-                                        <div
-                                            key={entry.id}
-                                            className="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-700"
-                                        >
-                                            <div className="text-[10px] text-slate-400 uppercase mb-1">
-                                                {new Date(entry.ts).toLocaleString('it-IT')}
-                                            </div>
-                                            {entry.text}
-                                        </div>
-                                    ))}
-                                </div>
-                                {history.length > 0 && (
-                                    <button
-                                        onClick={() => setHistory([])}
-                                        className="mt-4 w-full bg-slate-900 text-white rounded-2xl py-3 text-[11px] font-black uppercase"
-                                    >
-                                        Svuota cronologia
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    )}
+
 
                     {/* Modale per leggere la ricetta dell'IA (Versione corretta) */}
                     {selectedAiRecipe && (
@@ -1287,6 +1584,22 @@ const processWithAI = async (input) => {
                                     className="w-full bg-slate-800 text-white rounded-2xl py-4 text-xs font-black uppercase"
                                 >
                                     OK
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    {/* Modale generico per risposte IA */}
+                    {showModal && (
+                        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[115] flex items-center justify-center p-6">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl flex flex-col max-h-[70vh]">
+                                <div className="flex-1 overflow-y-auto text-[13px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap pr-2">
+                                    {modalContent}
+                                </div>
+                                <button
+                                    onClick={() => setShowModal(false)}
+                                    className="mt-4 w-full bg-slate-900 text-white rounded-2xl py-3 text-[11px] font-black uppercase"
+                                >
+                                    Chiudi
                                 </button>
                             </div>
                         </div>

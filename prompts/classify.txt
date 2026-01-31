@@ -1,35 +1,60 @@
 CLASSIFICAZIONE TESTO - Smart Chef
 
 OBIETTIVO
-Analizza il testo fornito dall'utente e restituisci ESATTAMENTE una delle 3 categorie: RICETTA, LISTA o GENERICA.
+Analizza il testo fornito dall'utente e restituisci ESATTAMENTE una delle 4 categorie: RICETTA, LISTA, ELIMINAZIONE o GENERICA.
 
-REGOLE IMPORTANTI
-- Considera `RICETTA` quando l'utente chiede come preparare un piatto, fornisce ingredienti collegati a una ricetta, chiede procedimento, tempi, cottura o dosi.
-- Considera `LISTA` quando il testo rappresenta una lista di prodotti per la spesa. I separatori possono essere:
-  - virgole: "latte, uova, pane"
-  - nuova riga: ogni voce su una riga diversa
-  - congiunzioni/elenchi senza virgole: parole come "e", "+", "/" devono essere interpretate come separatori (es. "pane acqua e latte" → 3 elementi)
-  - numerazione o punti elenco
-- Considera `GENERICA` per domande, spiegazioni, commenti o qualunque testo che non abbia chiaro intento di ricetta o lista.
+!!!!! IMPORTANTE MASSIMA PRIORITÀ !!!!!
+Se il testo CONTIENE UNO DI QUESTI VERBI/ESPRESSIONI → SEMPRE ELIMINAZIONE:
+"elimina", "togli", "cancella", "rimuovi", "butta", "togliamo", "togliez", "leva", "leva", "levare", "levato", "leviamo", "levo", "togliere", "tolgo", "tolto", "rimosso", "cancellato", "eliminato", "buttare", "buttato", "spunta", "spuntare", "spuntato", "ho comprato", "ho già comprato", "ho gia comprato", "ho preso", "ho già preso", "ho gia preso", "comprato"
 
-ESEMPI (input → categoria):
+QUESTA REGOLA HA MASSIMA PRIORITÀ. Se il testo contiene uno di questi verbi, NON guardare nient'altro, rispondi ELIMINAZIONE.
+
+REGOLE DETTAGLIATE (SOLO se NON ci sono i verbi sopra)
+1. Considera `RICETTA` quando:
+   - L'utente chiede come preparare/cucinare un piatto
+   - Fornisce ingredienti collegati a una ricetta
+   - Chiede procedimento, tempi, cottura, dosi
+
+2. Considera `LISTA` quando:
+   - Il testo è una lista di prodotti per LA SPESA (non per eliminare)
+   - I separatori: virgole, "e", nuova riga, numeri, punti elenco
+   - NON contiene verbi di eliminazione
+
+3. Considera `GENERICA` per:
+   - Domande generiche
+   - Spiegazioni
+   - Commenti
+   - Qualunque testo che non sia ricetta/lista
+
+
+ESEMPI CRITICI (TUTTI QUESTI DEVONO ESSERE ELIMINAZIONE):
+- "elimina sale" → ELIMINAZIONE (contiene "elimina")
+- "togli sale" → ELIMINAZIONE (contiene "togli")
+- "cancella sale" → ELIMINAZIONE (contiene "cancella")
+- "Elimina zucchero sale e olio" → ELIMINAZIONE
+- "Leva le carote e olio" → ELIMINAZIONE
+- "Rimuovi la farina e lo zucchero" → ELIMINAZIONE
+- "Togli il latte e le uova" → ELIMINAZIONE
+- "Butta il pane" → ELIMINAZIONE
+
+ALTRI ESEMPI:
 - "Come preparo la carbonara?" → RICETTA
 - "Ingredienti: 200g farina, 2 uova, latte" → RICETTA
-- "latte, uova, pane" → LISTA
-- "pane acqua e latte" → LISTA
+- "latte, uova, pane" → LISTA (nessun verbo di eliminazione)
 - "Cosa posso cucinare con pollo e limone?" → RICETTA
 - "Qual è il valore nutritivo delle mele?" → GENERICA
 
 INPUT:
 {{textInput}}
 
-RISPOSTA (SOLO JSON)
-Restituisci SOLO questo oggetto JSON, senza testo aggiuntivo, senza note, senza spiegazioni:
+RISPOSTA (SOLO JSON, SENZA ALTRO)
 {
-  "categoria": "RICETTA" | "LISTA" | "GENERICA",
-  "motivazione": "una frase che spiega il motivo della scelta (max 40 parole)"
+  "categoria": "RICETTA" | "LISTA" | "ELIMINAZIONE" | "GENERICA",
+  "motivazione": "una frase breve (max 20 parole)"
 }
 
-NOTE TECNICHE
-- Usa la categoria in MAIUSCOLO esatta.
-- Se il testo contiene elenchi impliciti separati da "e" o congiunzioni, scegli `LISTA` e considera ogni congiunzione come un separatore di elementi.
+NOTE CRITICHE
+1. **SEMPRE CONTROLLA I VERBI PRIMA**: Se il testo contiene uno dei verbi di eliminazione, la risposta DEVE ESSERE "ELIMINAZIONE"
+2. Se il testo è dubbio o ambiguo (es. non è chiaro se l'utente vuole aggiungere o eliminare), restituisci `GENERICA` e imposta la `motivazione` su: "Non ho capito, puoi esprimerti meglio?" (esatto testo preferibile).
+3. Usa MAIUSCOLO per la categoria
+4. Non aggiungere spiegazioni oltre il JSON

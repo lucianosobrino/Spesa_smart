@@ -190,6 +190,8 @@
             const [showHistory, setShowHistory] = useState(false);
             const [showConfirmReset, setShowConfirmReset] = useState(false);
             const [showConfirmClearBought, setShowConfirmClearBought] = useState(false);
+            const [showDeleteModal, setShowDeleteModal] = useState(false);
+            const [deleteModalData, setDeleteModalData] = useState({ found: [], notFound: [] });
             const [errorModal, setErrorModal] = useState({ show: false, title: '', message: '' });
             const [hideBought, setHideBought] = useState(false); 
             const [collapsedCats, setCollapsedCats] = useState({});
@@ -482,7 +484,7 @@ const processWithAI = async (input) => {
         if (!textInput) return;
 
         // 1. CARICA IL PROMPT DI CLASSIFICAZIONE
-        const classifyPromptTemplate = await loadPrompt("prompts/classify.txt");
+        const classifyPromptTemplate = await loadPrompt("prompts/classify.txt?v=" + Date.now());
         const classifyPrompt = classifyPromptTemplate.replace("{{textInput}}", textInput);
 
         // 2. CHIAMATA DI CLASSIFICAZIONE
@@ -510,13 +512,23 @@ const processWithAI = async (input) => {
             console.error('Classification parse error', e, classifyJson);
             // Fallback euristico semplice
             const low = textInput.toLowerCase();
-            if (/\b(ricetta|ingredienti|preparazione|procedimento|cottura|forno|mescola)\b/.test(low)) {
+            // Controlla PRIMA i verbi di eliminazione (massima priorità)
+            if (/\b(elimina|togli|cancella|rimuovi|butta|togliamo|togliez|tolgo|tolto|rimosso|cancellato|eliminato|buttare|buttato|leva|levare|leviamo|levo|sparire|scomparire|togliere|levato|spunt|ho\s*(?:gia|già)?\s*(?:comprat(?:o|i)?|preso))\b/.test(low)) {
+                classification = { categoria: 'ELIMINAZIONE' };
+            } else if (/\b(ricetta|ingredienti|preparazione|procedimento|cottura|forno|mescola)\b/.test(low)) {
                 classification = { categoria: 'RICETTA' };
             } else if (/[,\n]/.test(textInput) || textInput.split(/\s+/).length <= 6) {
                 classification = { categoria: 'LISTA' };
             } else {
                 classification = { categoria: 'GENERICA' };
             }
+        }
+
+        // Controllo di sicurezza: se l'IA non ha riconosciuto ELIMINAZIONE, controlla manualmente
+        const low = textInput.toLowerCase();
+        if (classification?.categoria !== 'ELIMINAZIONE' && /\b(elimina|togli|cancella|rimuovi|butta|togliamo|togliez|tolgo|tolto|rimosso|cancellato|eliminato|buttare|buttato|leva|levare|leviamo|levo|sparire|scomparire|togliere|levato|spunt|ho\s*(?:gia|già)?\s*(?:comprat(?:o|i)?|preso))\b/.test(low)) {
+            console.log("Correzzione: forzo ELIMINAZIONE per verbo non riconosciuto");
+            classification = { categoria: 'ELIMINAZIONE' };
         }
 
         // show brief classification toast then continue
@@ -686,6 +698,79 @@ const processWithAI = async (input) => {
             break;
             }
 
+            case "ELIMINAZIONE": {
+            // Chiedi all'IA di estrarre gli elementi da eliminare
+            try {
+                const deleteSystem = `Sei un assistente che estrae elementi da eliminare. Rispondi SOLO in JSON con la forma: {"items":["nome1","nome2",...]}. Non aggiungere spiegazioni. Estrai TUTTI i prodotti menzonati nel comando, anche quelli separati da "e", "o", virgole.`;
+                const deletePrompt = `Estrai gli elementi da eliminare dalla seguente richiesta e restituisci solo il JSON richiesto: "${textInput}"`;
+
+                const deleteResp = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [
+                                { role: "user", parts: [{ text: deleteSystem }] },
+                                { role: "user", parts: [{ text: deletePrompt }] }
+                            ],
+                            generationConfig: { responseMimeType: "application/json", temperature: 0.0 }
+                        })
+                    }
+                );
+
+                const deleteJson = await deleteResp.json();
+                let deletedData = null;
+                try {
+                    const deleteText = deleteJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    deletedData = deleteText ? JSON.parse(deleteText) : null;
+                } catch (e) {
+                    console.error('Parse delete JSON error', e, deleteJson);
+                }
+
+                if (deletedData && Array.isArray(deletedData.items) && deletedData.items.length > 0) {
+                    const toDelete = deletedData.items.map(name => name.trim().toLowerCase()).filter(Boolean);
+                    const found = [];
+                    const notFound = [];
+
+                    // Controlla quali elementi esistono nella lista
+                    toDelete.forEach(searchName => {
+                        const foundItem = items.find(item => item.name.toLowerCase().trim() === searchName);
+                        if (foundItem) {
+                            found.push(foundItem);
+                        } else {
+                            notFound.push(searchName);
+                        }
+                    });
+
+                    // Marca come spuntati gli elementi trovati
+                    if (found.length > 0) {
+                        setItems(prev => 
+                            prev.map(item => 
+                                found.some(f => f.id === item.id) 
+                                    ? { ...item, bought: true }
+                                    : item
+                            )
+                        );
+                    }
+
+                    // Mostra il modale SOLO se ci sono elementi non trovati
+                    if (notFound.length > 0) {
+                        setDeleteModalData({ found, notFound });
+                        setShowDeleteModal(true);
+                    }
+                } else {
+                    setShowModal(true);
+                    setModalContent('Non ho trovato elementi da eliminare nel tuo comando.');
+                }
+            } catch (e) {
+                console.error('Errore eliminazione via IA:', e);
+                setShowModal(true);
+                setModalContent('Errore nel processo di eliminazione.');
+            }
+            break;
+            }
+
             default: {
             // fallback
             setShowModal(true);
@@ -837,9 +922,13 @@ const processWithAI = async (input) => {
                         {/* Logo + titolo */}
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-md">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="white">
-                                    <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-                                </svg>
+                                {faviconHref ? (
+                                    <img src={faviconHref} alt="Logo" className="w-6 h-6 rounded-md" />
+                                ) : (
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="white">
+                                        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                                    </svg>
+                                )}
                             </div>
                             <h1 className="text-lg font-black text-slate-800 italic uppercase">
                                 Chef Spesa
@@ -1189,10 +1278,11 @@ const processWithAI = async (input) => {
                                 {/* Pulsante X di chiusura (nella area bianca) */}
                                 <button
                                     onClick={() => {
-                                        const val = document.getElementById('key_field').value.trim();
-                                        setApiKey(val);
-                                        localStorage.setItem('chef_api_key', val);
-                                        setShowSettings(false);
+                                        if (showHistory) {
+                                            setShowHistory(false);
+                                        } else {
+                                            setShowSettings(false);
+                                        }
                                     }}
                                     className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors bg-slate-50/40 rounded-full w-8 h-8 flex items-center justify-center"
                                 >
@@ -1309,6 +1399,18 @@ const processWithAI = async (input) => {
                                         </div>
                                     </div>
                                 </div>
+                                {/* Pulsante Salva e Chiudi (nella maschera di Configurazione) */}
+                                <button
+                                    onClick={() => {
+                                        const val = document.getElementById('key_field').value.trim();
+                                        setApiKey(val);
+                                        localStorage.setItem('chef_api_key', val);
+                                        setShowSettings(false);
+                                    }}
+                                    className="mt-3 w-full bg-blue-600 text-white rounded-xl py-2 text-xs font-black uppercase tracking-widest shadow-sm"
+                                >
+                                    Salva e Chiudi
+                                </button>
                                 </>
                                 ) : (
                                 <>
@@ -1341,19 +1443,6 @@ const processWithAI = async (input) => {
                                         Svuota cronologia
                                     </button>
                                 )}
-
-                                {/* Pulsante Salva e Chiudi (ridotto) */}
-                                <button
-                                    onClick={() => {
-                                        const val = document.getElementById('key_field').value.trim();
-                                        setApiKey(val);
-                                        localStorage.setItem('chef_api_key', val);
-                                        setShowSettings(false);
-                                    }}
-                                    className="mt-3 w-full bg-blue-600 text-white rounded-xl py-2 text-xs font-black uppercase tracking-widest shadow-sm"
-                                >
-                                    Salva e Chiudi
-                                </button>
                                 </>
                                 )}
                             </div>
@@ -1449,7 +1538,47 @@ const processWithAI = async (input) => {
                         </div>
                     )}
 
+                    {/* Modale di riepilogo eliminazione */}
+                    {showDeleteModal && (
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-6">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl max-h-[80vh] overflow-y-auto">
+                                <h3 className="text-xl font-black mb-4 uppercase">✓ Riepilogo Eliminazione</h3>
+                                
+                                {deleteModalData.found.length > 0 && (
+                                    <div className="mb-6">
+                                        <p className="text-[11px] font-black text-slate-500 uppercase mb-3">Ho spuntato questi:</p>
+                                        <div className="space-y-2">
+                                            {deleteModalData.found.map(item => (
+                                                <div key={item.id} className="px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-[12px] font-bold text-green-700">
+                                                    ✓ {item.name}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
+                                {deleteModalData.notFound.length > 0 && (
+                                    <div className="mb-6">
+                                        <p className="text-[11px] font-black text-slate-500 uppercase mb-3">Non sono nella tua lista:</p>
+                                        <div className="space-y-2">
+                                            {deleteModalData.notFound.map((name, idx) => (
+                                                <div key={idx} className="px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-xl text-[12px] font-bold text-yellow-700">
+                                                    ✗ {name}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={() => setShowDeleteModal(false)}
+                                    className="w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest"
+                                >
+                                    Chiudi
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Modale per leggere la ricetta dell'IA (Versione corretta) */}
                     {selectedAiRecipe && (
