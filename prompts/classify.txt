@@ -1,0 +1,35 @@
+CLASSIFICAZIONE TESTO - Smart Chef
+
+OBIETTIVO
+Analizza il testo fornito dall'utente e restituisci ESATTAMENTE una delle 3 categorie: RICETTA, LISTA o GENERICA.
+
+REGOLE IMPORTANTI
+- Considera `RICETTA` quando l'utente chiede come preparare un piatto, fornisce ingredienti collegati a una ricetta, chiede procedimento, tempi, cottura o dosi.
+- Considera `LISTA` quando il testo rappresenta una lista di prodotti per la spesa. I separatori possono essere:
+  - virgole: "latte, uova, pane"
+  - nuova riga: ogni voce su una riga diversa
+  - congiunzioni/elenchi senza virgole: parole come "e", "+", "/" devono essere interpretate come separatori (es. "pane acqua e latte" → 3 elementi)
+  - numerazione o punti elenco
+- Considera `GENERICA` per domande, spiegazioni, commenti o qualunque testo che non abbia chiaro intento di ricetta o lista.
+
+ESEMPI (input → categoria):
+- "Come preparo la carbonara?" → RICETTA
+- "Ingredienti: 200g farina, 2 uova, latte" → RICETTA
+- "latte, uova, pane" → LISTA
+- "pane acqua e latte" → LISTA
+- "Cosa posso cucinare con pollo e limone?" → RICETTA
+- "Qual è il valore nutritivo delle mele?" → GENERICA
+
+INPUT:
+{{textInput}}
+
+RISPOSTA (SOLO JSON)
+Restituisci SOLO questo oggetto JSON, senza testo aggiuntivo, senza note, senza spiegazioni:
+{
+  "categoria": "RICETTA" | "LISTA" | "GENERICA",
+  "motivazione": "una frase che spiega il motivo della scelta (max 40 parole)"
+}
+
+NOTE TECNICHE
+- Usa la categoria in MAIUSCOLO esatta.
+- Se il testo contiene elenchi impliciti separati da "e" o congiunzioni, scegli `LISTA` e considera ogni congiunzione come un separatore di elementi.

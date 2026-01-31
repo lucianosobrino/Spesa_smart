@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Grocery Chef Pro</title>
+    <title>Chef Spesa</title>
     
-    <link rel="icon" type="image/png" href="SpesaSmart.png?v=1">
-    <link rel="apple-touch-icon" href="ChefSpesa.png?v=3">
+    <link rel="icon" type="image/png" href="ChefSpesa.png?v=4">
+    <link rel="apple-touch-icon" href="ChefSpesa.png?v=4">
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -30,6 +30,53 @@
         .mini-loader { width: 16px; height: 16px; border: 2px solid #ffffff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
         .error-shake { animation: shake 0.5s ease-in-out; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        @keyframes splashScale {
+          0% {
+            transform: scale(0.3);
+            opacity: 0;
+          }
+          40% {
+            transform: scale(1.05);
+            opacity: 1;
+          }
+          70% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 0.95;
+          }
+        }
+        
+        @keyframes splashFade {
+          0% {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          40% {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          60% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-splash-scale {
+          animation: splashScale 2.2s ease-out forwards;
+        }
+        
+        .animate-splash-fade {
+          animation: splashFade 2.4s ease-out forwards;
+        }
+
+        
     </style>
 </head>
 <body>
@@ -38,7 +85,15 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
+         
         const App = () => {
+
+            const [showDeleteCatModal, setShowDeleteCatModal] = useState(false);
+            const [catToDelete, setCatToDelete] = useState(null);
+   
+            const faviconHref =
+              document.querySelector('link[rel="icon"], link[rel="shortcut icon"]')?.href || '';
+
             const [apiKey, setApiKey] = useState(() => localStorage.getItem('chef_api_key') || '');
             const [items, setItems] = useState(() => {
                 try {
@@ -54,6 +109,8 @@
                     return [];
                 }
             });
+
+            const [showSplash, setShowSplash] = useState(true);
 
             //const [aiRecipeText, setAiRecipeText] = useState("");
             //const [showAiRecipeModal, setShowAiRecipeModal] = useState(false);
@@ -113,6 +170,13 @@
                     return ["Frutta e Verdura", "Gastronomia", "Macelleria", "Pescheria", "Latticini", "Surgelati", "Forno", "Dispensa", "Bevande", "Detersivi", "Igiene", "Altro"];
                 }
             });
+
+            // Splash iniziale di 5 secondi
+            useEffect(() => {
+              const timer = setTimeout(() => setShowSplash(false), 5000);
+              return () => clearTimeout(timer);
+            }, []);
+
             
                 // Effetto per il salvataggio automatico delle categorie
                 useEffect(() => {
@@ -457,6 +521,35 @@ const processWithAI = async (input) => {
 
             return (
                 <div className="max-w-md mx-auto min-h-screen px-4 pt-6 main-container">
+
+                {/* Splash iniziale con favicon e stato IA */}
+                {showSplash && (
+                  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white">
+                    <div className="flex flex-col items-center">
+                      {/* Logo che cresce */}
+                                            <div
+                                                className="w-24 h-24 mb-4 rounded-3xl bg-gray-100 flex items-center justify-center shadow-2xl shadow-slate-300/40 animate-splash-scale"
+                                            >
+                        {faviconHref ? (
+                          <img
+                            src={faviconHref}
+                            alt="Spesa Smart"
+                            className="w-16 h-16 rounded-2xl"
+                          />
+                        ) : (
+                          <span className="text-3xl">🧺</span>
+                        )}
+                      </div>
+                
+                      {/* Stato IA */}
+                                            <div className="px-4 py-2 rounded-full bg-gray-100/80 border border-gray-300 text-[10px] font-black uppercase tracking-[.2em] text-slate-700 animate-splash-fade">
+                                                IA {aiEnabled ? 'attiva' : 'disattivata'}
+                                            </div>
+                    </div>
+                  </div>
+                )}
+
+                    
                     {/* Header Azioni */}
                     <div className="flex justify-between items-center mb-6">
                         {/* Logo + titolo */}
@@ -879,24 +972,24 @@ const processWithAI = async (input) => {
                                         </label>
                                     </div>
 
-{/* Link al Modale Reparti */}
-<div className="mt-6 pt-6 border-t border-slate-100">
-    <button 
-        onClick={() => setShowCategoryManager(true)}
-        className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 active:scale-95 transition-all group"
-    >
-        <div className="flex items-center gap-3">
-            <span className="text-xl">🗂️</span>
-            <div className="text-left">
-                <p className="text-[11px] font-black uppercase text-slate-800">Gestisci Reparti</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Aggiungi, rinomina o elimina</p>
-            </div>
-        </div>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-300 group-hover:text-blue-500 transition-colors">
-            <polyline points="9 18 15 12 9 6"/>
-        </svg>
-    </button>
-</div>                                    
+                                    {/* Link al Modale Reparti */}
+                                    <div className="mt-6 pt-6 border-t border-slate-100">
+                                        <button 
+                                            onClick={() => setShowCategoryManager(true)}
+                                            className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 active:scale-95 transition-all group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xl">🗂️</span>
+                                                <div className="text-left">
+                                                    <p className="text-[11px] font-black uppercase text-slate-800">Gestisci Reparti</p>
+                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">Aggiungi, rinomina o elimina</p>
+                                                </div>
+                                            </div>
+                                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-300 group-hover:text-blue-500 transition-colors">
+                                                <polyline points="9 18 15 12 9 6"/>
+                                            </svg>
+                                        </button>
+                                    </div>                                    
 
 
                                     {/* Help */}
@@ -927,12 +1020,9 @@ const processWithAI = async (input) => {
                     )}
 
                     {/* Wizard categoria manuale */}
-   {/* Wizard categoria manuale */}
                     {categoryWizardOpen && (
                       <>
-                        {/*
-                          Ordina le categorie mettendo Altro sempre in cima
-                        */}
+                        {/* Ordina le categorie mettendo Altro sempre in cima */}
                         {(() => {
                           const sortedCategories = ['Altro', ...categoryOptions.filter(cat => cat !== 'Altro')];
                     
@@ -1064,83 +1154,126 @@ const processWithAI = async (input) => {
                         </div>
                     )}
 
-{/* Modale per leggere la ricetta dell'IA (Versione corretta) */}
-{selectedAiRecipe && (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex items-center justify-center p-6">
-        <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[80vh]">
-            <h3 className="text-lg font-black uppercase mb-4 flex items-center gap-2 italic">
-                <span className="text-2xl">👨‍🍳</span> {selectedAiRecipe.title}
-            </h3>
-            <div className="flex-1 overflow-y-auto text-[13px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap pr-2">
-                {selectedAiRecipe.full_text}
-            </div>
-            <button
-                onClick={() => setSelectedAiRecipe(null)}
-                className="mt-6 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest"
-            >
-                Chiudi
-            </button>
-        </div>
-    </div>
-)}
+                    {/* Modale per leggere la ricetta dell'IA (Versione corretta) */}
+                    {selectedAiRecipe && (
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex items-center justify-center p-6">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[80vh]">
+                                <h3 className="text-lg font-black uppercase mb-4 flex items-center gap-2 italic">
+                                    <span className="text-2xl">👨‍🍳</span> {selectedAiRecipe.title}
+                                </h3>
+                                <div className="flex-1 overflow-y-auto text-[13px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap pr-2">
+                                    {selectedAiRecipe.full_text}
+                                </div>
+                                <button
+                                    onClick={() => setSelectedAiRecipe(null)}
+                                    className="mt-6 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest"
+                                >
+                                    Chiudi
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
-{/* MODALE GESTIONE REPARTI (LIVELLO 2) */}
-{showCategoryManager && (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[120] flex items-center justify-center p-6">
-        <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-black uppercase italic tracking-tight">I tuoi Reparti</h3>
-                <button 
-                    onClick={() => {
-                        const name = prompt("Nome nuovo reparto:");
-                        if(name) addCategory(name);
-                    }}
-                    className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-200"
-                >
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                </button>
-            </div>
+                {/* MODALE GESTIONE REPARTI (LIVELLO 2) */}
+                {showCategoryManager && (
+                    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[120] flex items-center justify-center p-6">
+                        <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col max-h-[85vh]">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-lg font-black uppercase italic tracking-tight">I tuoi Reparti</h3>
+                                <button 
+                                    onClick={() => {
+                                        const name = prompt("Nome nuovo reparto:");
+                                        if(name) addCategory(name);
+                                    }}
+                                    className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-200"
+                                >
+                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3">
+                                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                                    </svg>
+                                </button>
+                            </div>
 
-            <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-hide">
-                   {categoryOptions.map(cat => (
-                    <div key={cat} className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <input 
-                            type="text"
-                            defaultValue={cat}
-                            disabled={cat === "Altro"}
-                            onBlur={(e) => {
-                                if (e.target.value !== cat) renameCategory(cat, e.target.value);
-                            }}
-                            className={`flex-1 bg-transparent text-xs font-bold outline-none ${cat === "Altro" ? 'text-slate-400' : 'text-slate-700'}`}
-                        />
-                        {cat !== "Altro" && (
-                            <button 
-                                onClick={() => confirm(`Eliminare "${cat}"?`) && deleteCategory(cat)}
-                                className="text-red-400 p-1"
+                                <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+                                {categoryOptions.map(cat => (
+                                    <div key={cat} className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                        <input 
+                                            type="text"
+                                            defaultValue={cat}
+                                            disabled={cat === "Altro"}
+                                            onBlur={(e) => {
+                                                if (e.target.value !== cat) renameCategory(cat, e.target.value);
+                                            }}
+                                            className={`flex-1 bg-transparent text-xs font-bold outline-none ${cat === "Altro" ? 'text-slate-400' : 'text-slate-700'}`}
+                                        />
+                                        {cat !== "Altro" && (
+                                            <button 
+                                                onClick={() => {
+                                                setCatToDelete(cat);
+                                                setShowDeleteCatModal(true);
+                                                }}
+                                                className="text-red-400 p-1"
+                                                title="Elimina reparto"
+                                            >
+                                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3">
+                                                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                </svg>
+                                            </button>
+                                            )}
+
+                                    </div>
+                                ))}  
+                        
+
+                            </div>
+
+                            <button
+                                onClick={() => setShowCategoryManager(false)}
+                                className="mt-8 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest shadow-xl"
                             >
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3">
-                                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                </svg>
+                                Torna alle impostazioni
                             </button>
-                        )}
+                        </div>
                     </div>
-                ))}  
-          
+                )}                    
 
-            </div>
+                {/* Modale conferma eliminazione reparto */}
+                {showDeleteCatModal && catToDelete && (
+                  <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[130] flex items-center justify-center p-6">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-xs p-8 text-center shadow-2xl">
+                      <h3 className="text-xl font-black mb-2 uppercase italic text-slate-900">
+                        Eliminare reparto?
+                      </h3>
+                      <p className="text-[11px] text-slate-500 font-bold uppercase mb-6">
+                        Verrà rimosso il reparto&nbsp;
+                        <span className="text-red-500">"{catToDelete}"</span>.
+                        Gli articoli eventualmente assegnati potranno essere riorganizzati in seguito.
+                      </p>
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => {
+                            deleteCategory(catToDelete);
+                            setShowDeleteCatModal(false);
+                            setCatToDelete(null);
+                          }}
+                          className="bg-red-500 text-white rounded-2xl py-4 font-black uppercase text-xs shadow-md shadow-red-200"
+                        >
+                          Elimina reparto
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowDeleteCatModal(false);
+                            setCatToDelete(null);
+                          }}
+                          className="bg-slate-100 text-slate-500 rounded-2xl py-4 font-black uppercase text-xs"
+                        >
+                          Annulla
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-            <button
-                onClick={() => setShowCategoryManager(false)}
-                className="mt-8 w-full bg-slate-900 text-white rounded-2xl py-4 text-xs font-black uppercase tracking-widest shadow-xl"
-            >
-                Torna alle impostazioni
-            </button>
-        </div>
-    </div>
-)}                    
-
+                    
                     {/* Modale errore */}
                     {errorModal.show && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
@@ -1162,7 +1295,7 @@ const processWithAI = async (input) => {
             );
         };
 
-       const root = ReactDOM.createRoot(document.getElementById('root'));
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
